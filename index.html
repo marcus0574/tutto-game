@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Designer Edition</title>
+    <title>Tutto - Strategy Edition</title>
     <style>
         :root {
             --gold: #ffd700;
@@ -21,7 +21,6 @@
         }
         canvas { display: block; }
         
-        /* Setup Screen */
         #setup-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
@@ -36,7 +35,6 @@
             margin: 8px; width: 85%; background: #111; color: white; 
         }
         
-        /* Sidebar */
         #sidebar { 
             position: absolute; right: 0; top: 0; width: 260px; height: 100%; 
             background: var(--panel); border-left: 5px solid var(--gold); 
@@ -51,6 +49,7 @@
             box-shadow: 0 5px 0px rgba(0,0,0,0.4); transition: 0.1s;
         }
         button:active { transform: translateY(3px); box-shadow: 0 2px 0px rgba(0,0,0,0.4); }
+        button:disabled { background: #444 !important; color: #777; cursor: not-allowed; box-shadow: none; transform: none; }
         
         #roll-btn { background: linear-gradient(#4a4ae6, #1e1e96); }
         #save-btn { background: linear-gradient(#e64a4a, #961e1e); }
@@ -71,7 +70,7 @@
 
 <div id="setup-screen">
     <div class="setup-box">
-        <h1 style="color: var(--gold); margin-top: 0;">TUTTO DESIGNER</h1>
+        <h1 style="color: var(--gold); margin-top: 0;">TUTTO</h1>
         <div id="player-inputs">
             <input type="text" id="p1" value="Spieler 1">
             <input type="text" id="p2" value="Spieler 2">
@@ -87,8 +86,9 @@
     <div id="score-list"></div>
     <hr style="border: 0.5px solid #444; margin: 20px 0;">
     <div id="round-info" style="text-align: center;">
-        <div style="font-size: 14px; color: #aaa;">RUNDE</div>
+        <div style="font-size: 14px; color: #aaa;">AKTUELLE RUNDE</div>
         <div id="round-display" style="font-size: 36px; color: var(--gold); font-weight: bold;">0</div>
+        <div id="bonus-info" style="font-size: 14px; color: #00ffff; margin-top: 5px;"></div>
     </div>
 </div>
 
@@ -144,11 +144,13 @@
 
     function rollDice() {
         if (!currentCard || isNiete || isAnimatingDice) return;
+        if (numDiceToRoll === 0) return; // Spieler muss "Neue Karte" drücken oder "Sichern"
+        
         rollSound.play().catch(() => {});
         isAnimatingDice = true;
         diceAnimTimer = 25;
         moveHistory = [];
-        if (numDiceToRoll === 0) { numDiceToRoll = 6; selectedInRound = []; }
+        
         dice = [];
         for (let i = 0; i < numDiceToRoll; i++) {
             let pos = findSafePos(dice);
@@ -158,7 +160,9 @@
     }
 
     function drawCard() {
-        if (currentCard || isNiete) return;
+        if (isNiete || isAnimatingDice) return;
+        if (currentCard && numDiceToRoll !== 0) return; // Nur am Anfang oder nach Tutto erlaubt
+
         cardX = -250;
         const deck = [
             {name: "BONUS 200", color: "#2b5ab3", bonus: 200, icon: "★"},
@@ -168,10 +172,24 @@
             {name: "STRASSE", color: "#2bb3b3", bonus: 2000, icon: "➔"},
             {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣"}
         ];
-        currentCard = deck[Math.floor(Math.random() * deck.length)];
-        selectedInRound = [];
-        if (currentCard.name === "STOP") { isNiete = true; document.getElementById('msg-display').innerText = "STOP!"; }
-        else { document.getElementById('msg-display').innerText = currentCard.name; }
+        
+        // Bei einem Tutto behalten wir die aktuelle Karte, wenn es kein Stop war
+        if (numDiceToRoll === 0) {
+            numDiceToRoll = 6;
+            // Falls Kleeblatt oder Strasse aktiv war, ziehen wir eine neue Karte
+            if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT") {
+                currentCard = deck[Math.floor(Math.random() * deck.length)];
+            }
+        } else {
+            currentCard = deck[Math.floor(Math.random() * deck.length)];
+        }
+
+        if (currentCard.name === "STOP") { 
+            isNiete = true; 
+            document.getElementById('msg-display').innerText = "STOP!"; 
+        } else { 
+            document.getElementById('msg-display').innerText = currentCard.name; 
+        }
         updateUI();
     }
 
@@ -184,10 +202,18 @@
     }
 
     function savePoints() {
+        // Sichern ist möglich wenn: Punkte da sind UND (Würfel übrig ODER Tutto erreicht ODER Strasse fertig)
         if (roundScore === 0 || isNiete || !currentCard || isAnimatingDice) return;
-        if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT") return;
-        scores[currentPlayer] += (roundScore + (currentCard.bonus || 0));
-        if (scores[currentPlayer] >= 6000) { alert("SIEG!"); location.reload(); return; }
+        if (currentCard.name === "KLEEBLATT") return; // Kleeblatt kann man nicht sichern
+
+        let finalPoints = roundScore;
+        // Bonuspunkte nur hinzufügen, wenn keine Spezialkarte (Strasse hat Bonus inkludiert)
+        if (currentCard.bonus > 0 && currentCard.name.startsWith("BONUS")) {
+            finalPoints += currentCard.bonus;
+        }
+
+        scores[currentPlayer] += finalPoints;
+        if (scores[currentPlayer] >= 6000) { alert(players[currentPlayer] + " GEWINNT!"); location.reload(); return; }
         nextTurn();
     }
 
@@ -203,38 +229,28 @@
             <div class="score-entry ${i === currentPlayer ? 'active-player' : ''}">
                 <strong>${p}</strong><br><span style="font-size: 20px;">${scores[i]}</span>
             </div>`).join("");
+        
         document.getElementById('round-display').innerText = roundScore;
+        document.getElementById('bonus-info').innerText = (currentCard && currentCard.bonus > 0) ? "+ " + currentCard.bonus + " Bonus" : "";
+
+        // Buttons steuern
+        document.getElementById('roll-btn').disabled = (numDiceToRoll === 0 || !currentCard || isNiete);
+        document.getElementById('save-btn').disabled = (roundScore === 0 || isNiete || (currentCard && currentCard.name === "KLEEBLATT"));
     }
 
     function drawDesignerCard(x, y, card) {
         const w = 150, h = 210, r = 15;
         ctx.save();
         ctx.translate(x, y);
-        
-        // Schatten & Hintergrund
         ctx.shadowBlur = 20; ctx.shadowColor = "rgba(0,0,0,0.5)";
         ctx.fillStyle = "white";
         ctx.beginPath(); ctx.roundRect(0, 0, w, h, r); ctx.fill();
         ctx.shadowBlur = 0;
-
-        // Farbiger Innenrahmen
-        ctx.strokeStyle = card.color;
-        ctx.lineWidth = 8;
+        ctx.strokeStyle = card.color; ctx.lineWidth = 8;
         ctx.beginPath(); ctx.roundRect(10, 10, w-20, h-20, r-5); ctx.stroke();
-
-        // Icon
-        ctx.fillStyle = card.color;
-        ctx.font = "bold 40px Arial";
-        ctx.textAlign = "center";
+        ctx.fillStyle = card.color; ctx.font = "bold 40px Arial"; ctx.textAlign = "center";
         ctx.fillText(card.icon, w/2, h/2 - 10);
-
-        // Text
-        ctx.font = "bold 16px 'Segoe UI'";
-        ctx.fillText(card.name, w/2, h/2 + 35);
-        if(card.bonus > 0) {
-            ctx.font = "14px Arial";
-            ctx.fillText("+" + card.bonus, w/2, h/2 + 60);
-        }
+        ctx.font = "bold 16px sans-serif"; ctx.fillText(card.name, w/2, h/2 + 35);
         ctx.restore();
     }
 
@@ -256,7 +272,7 @@
             diceAnimTimer--;
             if (diceAnimTimer <= 0) {
                 isAnimatingDice = false;
-                if (checkNieteFinal()) { isNiete = true; document.getElementById('msg-display').innerText = "NIETE!"; }
+                if (checkNieteFinal()) { isNiete = true; document.getElementById('msg-display').innerText = "NIETE!"; updateUI(); }
             }
         }
         requestAnimationFrame(draw);
@@ -278,7 +294,10 @@
             if (!d.selected && mx > d.x && mx < d.x+90 && my > d.y && my < d.y+90) {
                 let val = d.value, p = 0, indices = [];
                 if (currentCard.name === "STRASSE") {
-                    if (!selectedInRound.includes(val)) { d.selected = true; selectedInRound.push(val); numDiceToRoll--; indices.push(idx); if (selectedInRound.length === 6) p = 2000; }
+                    if (!selectedInRound.includes(val)) { 
+                        d.selected = true; selectedInRound.push(val); numDiceToRoll--; indices.push(idx); 
+                        if (selectedInRound.length === 6) { p = 2000; document.getElementById('msg-display').innerText = "STRASSE TUTTO!"; }
+                    }
                 } else {
                     let active = dice.filter(die => !die.selected);
                     let counts = {}; active.forEach(die => counts[die.value] = (counts[die.value] || 0) + 1);
@@ -291,7 +310,7 @@
                     }
                 }
                 if (indices.length > 0) { roundScore += p; moveHistory.push({ diceIndices: indices, points: p }); updateUI(); }
-                if (numDiceToRoll === 0 && currentCard.name === "KLEEBLATT") { alert("KLEEBLATT TUTTO!"); location.reload(); }
+                if (numDiceToRoll === 0) { document.getElementById('msg-display').innerText = "TUTTO! Sichern oder Neue Karte?"; updateUI(); }
             }
         });
     });
