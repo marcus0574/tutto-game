@@ -3,33 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - iPad Web Edition</title>
+    <title>Tutto - Animation Edition</title>
     <style>
         body { margin: 0; background: #146414; color: white; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; touch-action: none; user-select: none; }
         canvas { display: block; background: #146414; }
         
-        /* Setup Screen */
         #setup-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100;
         }
-        .setup-box { background: #1a1a1a; padding: 40px; border: 3px solid #ffd700; border-radius: 20px; text-align: center; max-width: 400px; }
+        .setup-box { background: #1a1a1a; padding: 40px; border: 3px solid #ffd700; border-radius: 20px; text-align: center; max-width: 400px; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
         input { padding: 12px; font-size: 18px; border-radius: 8px; border: 1px solid #ffd700; margin: 8px; width: 85%; background: #222; color: white; }
         
-        /* Sidebar & UI */
         #sidebar { position: absolute; right: 0; top: 0; width: 240px; height: 100%; background: rgba(0, 0, 0, 0.9); border-left: 4px solid #ffd700; padding: 20px; box-sizing: border-box; }
         .controls { position: absolute; bottom: 30px; left: 350px; display: flex; gap: 20px; }
         
-        button { padding: 15px 30px; font-size: 20px; font-weight: bold; border: 2px solid white; border-radius: 12px; cursor: pointer; color: white; box-shadow: 0 4px 0px rgba(0,0,0,0.5); }
+        button { padding: 15px 30px; font-size: 20px; font-weight: bold; border: 2px solid white; border-radius: 12px; cursor: pointer; color: white; box-shadow: 0 4px 0px rgba(0,0,0,0.5); transition: all 0.1s; }
         button:active { transform: translateY(2px); box-shadow: 0 2px 0px rgba(0,0,0,0.5); }
+        button:disabled { background: #555 !important; opacity: 0.5; cursor: not-allowed; }
+        
         #roll-btn { background: #3232c8; }
         #save-btn { background: #c83232; }
         #start-btn { background: #ffd700; color: black; border: none; width: 100%; margin-top: 20px; }
         #card-btn { position: absolute; top: 350px; left: 20px; background: #ffd700; color: black; width: 130px; padding: 10px; font-size: 16px; border-radius: 10px; border: none; font-weight: bold; }
 
-        .score-entry { margin-bottom: 12px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border-left: 5px solid transparent; }
-        .active-player { border-left: 5px solid #ffd700; background: rgba(255, 215, 0, 0.15); }
+        .score-entry { margin-bottom: 12px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border-left: 5px solid transparent; transition: all 0.3s; }
+        .active-player { border-left: 5px solid #ffd700; background: rgba(255, 215, 0, 0.15); transform: scale(1.05); }
         #msg-display { position: absolute; top: 80px; left: 180px; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 2px 2px 4px black; }
     </style>
 </head>
@@ -37,12 +37,12 @@
 
 <div id="setup-screen">
     <div class="setup-box">
-        <h1 style="color: #ffd700; margin-bottom: 30px;">TUTTO SETUP</h1>
+        <h1 style="color: #ffd700; margin-bottom: 30px;">TUTTO</h1>
         <div id="player-inputs">
             <input type="text" id="p1" placeholder="Name Spieler 1" value="Spieler 1">
             <input type="text" id="p2" placeholder="Name Spieler 2" value="Spieler 2">
-            <input type="text" id="p3" placeholder="Name Spieler 3 (leer lassen für 2)">
-            <input type="text" id="p4" placeholder="Name Spieler 4 (leer lassen)">
+            <input type="text" id="p3" placeholder="Name Spieler 3 (optional)">
+            <input type="text" id="p4" placeholder="Name Spieler 4 (optional)">
         </div>
         <button id="start-btn" onclick="initGame()">SPIEL STARTEN</button>
     </div>
@@ -79,6 +79,12 @@
     let numDiceToRoll = 6;
     let roundScore = 0;
     let isNiete = false;
+    
+    // Animation States
+    let isAnimatingDice = false;
+    let diceAnimTimer = 0;
+    let cardX = -200; // Für Karten-Animation
+    let particles = [];
 
     const diceImages = [];
     for(let i=1; i<=6; i++) {
@@ -99,55 +105,43 @@
         updateUI();
     }
 
-    function findNonOverlappingPos() {
-        let x, y, overlap;
-        let attempts = 0;
-        const size = 100; // Abstand zwischen den Würfeln
-        do {
-            overlap = false;
-            x = 180 + Math.random() * (window.innerWidth - 500);
-            y = 120 + Math.random() * (window.innerHeight - 350);
-            for (let d of dice) {
-                if (Math.abs(x - d.x) < size && Math.abs(y - d.y) < size) overlap = true;
-            }
-            attempts++;
-        } while (overlap && attempts < 300);
-        return {x, y};
+    function createParticles(x, y) {
+        for(let i=0; i<20; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: (Math.random() - 0.5) * 10,
+                life: 1.0,
+                color: '#ffd700'
+            });
+        }
     }
 
     function rollDice() {
-        if (!currentCard || isNiete) return;
+        if (!currentCard || isNiete || isAnimatingDice) return;
         rollSound.play().catch(() => {});
-        if (numDiceToRoll === 0) { numDiceToRoll = 6; selectedInRound = []; }
         
-        dice = [];
-        for (let i = 0; i < numDiceToRoll; i++) {
-            let pos = findNonOverlappingPos();
-            dice.push({ value: Math.floor(Math.random() * 6) + 1, x: pos.x, y: pos.y, selected: false });
+        isAnimatingDice = true;
+        diceAnimTimer = 30; // 30 Frames Schütteln
+
+        if (numDiceToRoll === 0) { 
+            numDiceToRoll = 6; 
+            selectedInRound = []; 
+            createParticles(window.innerWidth/2, window.innerHeight/2);
         }
         
-        if (checkNieteLogic()) {
-            isNiete = true;
-            document.getElementById('msg-display').innerText = "NIETE! (Tippe zum Wechsel)";
+        // Finaler Wurf wird erst nach Animation gesetzt
+        dice = [];
+        for (let i = 0; i < numDiceToRoll; i++) {
+            let pos = { x: 200 + Math.random() * (window.innerWidth - 500), y: 150 + Math.random() * (window.innerHeight - 350) };
+            dice.push({ value: Math.floor(Math.random() * 6) + 1, x: pos.x, y: pos.y, selected: false });
         }
         updateUI();
     }
 
-    function checkNieteLogic() {
-        let counts = {};
-        dice.forEach(d => counts[d.value] = (counts[d.value] || 0) + 1);
-        if (currentCard.name === "STRASSE") {
-            // Niete bei Straße, wenn alle gewürfelten Zahlen schon beiseite liegen
-            return dice.every(d => selectedInRound.includes(d.value));
-        }
-        for (let v in counts) {
-            if (counts[v] >= 3 || v == 1 || v == 5) return false;
-        }
-        return true;
-    }
-
     function drawCard() {
         if (currentCard || isNiete) return;
+        cardX = -200; // Animation Reset
         const deck = [
             {name: "BONUS 200", color: "#3232c8", bonus: 200},
             {name: "BONUS 400", color: "#3232c8", bonus: 400},
@@ -158,18 +152,22 @@
         ];
         currentCard = deck[Math.floor(Math.random() * deck.length)];
         selectedInRound = [];
-        if (currentCard.name === "STOP") { isNiete = true; document.getElementById('msg-display').innerText = "STOP!"; }
-        else { document.getElementById('msg-display').innerText = currentCard.name + "!"; }
+        if (currentCard.name === "STOP") { 
+            isNiete = true; 
+            document.getElementById('msg-display').innerText = "STOP!"; 
+        } else { 
+            document.getElementById('msg-display').innerText = currentCard.name + "!"; 
+        }
         updateUI();
     }
 
     function savePoints() {
-        if (roundScore === 0 || isNiete || !currentCard) return;
+        if (roundScore === 0 || isNiete || !currentCard || isAnimatingDice) return;
         if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT") return;
         
         scores[currentPlayer] += (roundScore + (currentCard.bonus || 0));
         if (scores[currentPlayer] >= 6000) {
-            alert("SIEG! " + players[currentPlayer] + " hat das Ziel von 6000 Punkten erreicht!");
+            alert("SIEG FÜR " + players[currentPlayer].toUpperCase() + "!");
             location.reload();
             return;
         }
@@ -191,40 +189,86 @@
             list.innerHTML += `<div class="score-entry ${active}"><strong>${p}</strong><br>Punkte: ${scores[i]}</div>`;
         });
         document.getElementById('round-display').innerText = "Runde: " + roundScore;
-        
         let selDiv = document.getElementById('selected-list');
         selDiv.innerHTML = selectedInRound.map(v => `<div style="background:white; color:black; padding:4px 8px; border-radius:6px; font-weight:bold; border:1px solid #999">🎲 ${v}</div>`).join("");
     }
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Karte Animation & Zeichnen
         if (currentCard) {
+            if (cardX < 20) cardX += 10;
             ctx.fillStyle = currentCard.color;
             ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0,0,0,0.5)";
-            ctx.fillRect(20, 150, 140, 190);
+            ctx.fillRect(cardX, 150, 140, 190);
             ctx.shadowBlur = 0;
             ctx.fillStyle = "white"; ctx.font = "bold 18px Arial";
-            ctx.fillText(currentCard.name, 30, 250);
+            ctx.fillText(currentCard.name, cardX + 15, 250);
         }
+
+        // Würfel zeichnen (mit Schüttel-Effekt)
         dice.forEach(d => {
             if (!d.selected) {
-                if (diceImages[d.value] && diceImages[d.value].complete) {
-                    ctx.drawImage(diceImages[d.value], d.x, d.y, 90, 90);
+                let dx = d.x;
+                let dy = d.y;
+                let val = d.value;
+
+                if (isAnimatingDice) {
+                    dx += (Math.random() - 0.5) * 15;
+                    dy += (Math.random() - 0.5) * 15;
+                    val = Math.floor(Math.random() * 6) + 1;
+                }
+
+                if (diceImages[val] && diceImages[val].complete) {
+                    ctx.drawImage(diceImages[val], dx, dy, 90, 90);
                 } else {
-                    ctx.fillStyle = "white"; ctx.fillRect(d.x, d.y, 90, 90);
-                    ctx.fillStyle = "black"; ctx.font = "bold 35px Arial"; ctx.fillText(d.value, d.x+32, d.y+58);
+                    ctx.fillStyle = "white"; ctx.fillRect(dx, dy, 90, 90);
+                    ctx.fillStyle = "black"; ctx.font = "bold 35px Arial"; ctx.fillText(val, dx+32, dy+58);
                 }
             }
         });
+
+        // Animation Logik Update
+        if (isAnimatingDice) {
+            diceAnimTimer--;
+            if (diceAnimTimer <= 0) {
+                isAnimatingDice = false;
+                // Nach Animation Niete prüfen
+                if (checkNieteFinal()) {
+                    isNiete = true;
+                    document.getElementById('msg-display').innerText = "NIETE!";
+                }
+            }
+        }
+
+        // Partikel zeichnen
+        particles.forEach((p, i) => {
+            p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+            if (p.life <= 0) particles.splice(i, 1);
+        });
+        ctx.globalAlpha = 1.0;
+
         requestAnimationFrame(draw);
     }
+
+    function checkNieteFinal() {
+        let counts = {};
+        dice.forEach(d => counts[d.value] = (counts[d.value] || 0) + 1);
+        if (currentCard.name === "STRASSE") return dice.every(d => selectedInRound.includes(d.value));
+        for (let v in counts) { if (counts[v] >= 3 || v == 1 || v == 5) return false; }
+        return true;
+    }
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
     draw();
 
     canvas.addEventListener('mousedown', (e) => {
-        if (isNiete) { nextTurn(); return; }
+        if (isNiete || isAnimatingDice) { if(isNiete) nextTurn(); return; }
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
@@ -232,22 +276,15 @@
         dice.forEach(d => {
             if (!d.selected && mx > d.x && mx < d.x+90 && my > d.y && my < d.y+90) {
                 let val = d.value;
-
-                // --- STRASSEN LOGIK (Keine Drillinge) ---
                 if (currentCard.name === "STRASSE") {
                     if (!selectedInRound.includes(val)) {
-                        d.selected = true;
-                        selectedInRound.push(val);
-                        numDiceToRoll--;
-                        if (selectedInRound.length === 6) roundScore = 2000;
+                        d.selected = true; selectedInRound.push(val); numDiceToRoll--;
+                        if (selectedInRound.length === 6) { roundScore = 2000; createParticles(d.x+45, d.y+45); }
                     }
-                } 
-                // --- NORMALE LOGIK ---
-                else {
+                } else {
                     let activeDice = dice.filter(die => !die.selected);
                     let counts = {};
                     activeDice.forEach(die => counts[die.value] = (counts[die.value] || 0) + 1);
-
                     if (counts[val] >= 3) {
                         let count = 0;
                         dice.forEach(die => {
@@ -256,16 +293,14 @@
                             }
                         });
                         if(currentCard.name !== "KLEEBLATT") roundScore += (val === 1) ? 1000 : val * 100;
+                        createParticles(mx, my);
                     } else if (val === 1 || val === 5) {
                         d.selected = true; selectedInRound.push(val); numDiceToRoll--;
                         if(currentCard.name !== "KLEEBLATT") roundScore += (val === 1) ? 100 : 50;
+                        createParticles(mx, my);
                     }
                 }
-                
-                if (numDiceToRoll === 0 && currentCard.name === "KLEEBLATT") {
-                    alert("KLEEBLATT TUTTO! " + players[currentPlayer] + " GEWINNT DAS SPIEL SOFORT!");
-                    location.reload();
-                }
+                if (numDiceToRoll === 0 && currentCard.name === "KLEEBLATT") { alert("KLEEBLATT TUTTO!"); location.reload(); }
                 updateUI();
             }
         });
