@@ -200,10 +200,8 @@
 
 <script>
     /* --- INTERNE LOGIK --- */
-    const socket = io(); // Dies baut die Verbindung zum Server auf!
-    // Der Browser hört zu: Wenn der Server "ergebnis_wurf" ruft...
-socket.on('ergebnis_wurf', (daten) => {
-    console.log("Würfel vom Server empfangen:", daten.werte);
+    let meinName = prompt("Wie heißt du?");
+    socket.emit('neuer_spieler', meinName);
     
     // Wir füllen die lokalen Würfel-Variablen mit den Server-Werten
     currentDiceValues = daten.werte;
@@ -549,9 +547,15 @@ socket.on('ergebnis_wurf', (daten) => {
     preloadAssets();
     window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
     canvas.width = window.innerWidth; canvas.height = window.innerHeight; render();
+        const socket = io(); // Dies baut die Verbindung zum Server auf!
+    
+    // Der Browser hört zu: Wenn der Server "ergebnis_wurf" ruft...
+    socket.on('ergebnis_wurf', (daten) => {
+    console.log("Würfel vom Server empfangen:", daten.werte);
 </script>
 </body>
 </html>
+
 
 
 
