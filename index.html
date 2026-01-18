@@ -328,24 +328,18 @@
         if (!currentCard || numDiceToRoll === 0) drawCard();
     }
 
-    function drawCard() {
-        if (cardDeck.length === 0) cardDeck = createDeck();
-        cardSound.currentTime = 0; cardSound.play().catch(e => {});
-        cardX = -350;
-        currentCard = cardDeck.pop();
-        if (numDiceToRoll === 0) { numDiceToRoll = 6; collectedDiceValues = []; }
-        document.getElementById('status-text').innerText = currentCard.name;
-        
-        if (currentCard.type === "stop") {
-            document.getElementById('roll-btn').disabled = true;
-            setTimeout(() => { 
-                showDialog("STOP", "Runde beendet!", 'niete', () => { roundScore = 0; nextTurn(); });
-            }, 800);
-        } else {
-            document.getElementById('roll-btn').disabled = false;
-        }
-        updateUI();
-    }
+  function drawCard() {
+    // Nicht mehr selbst ziehen! Wir fragen den Server:
+    socket.emit('ziehe_karte');
+}
+
+// Und hier empfangen wir die Karte vom Server
+socket.on('neue_karte', (kartenIndex) => {
+    // Hier kommt dein alter Code rein, der die Karte anzeigt
+    // Benutze kartenIndex, um die richtige Karte aus deinem Array zu wählen
+    console.log("Alle ziehen Karte Nr: " + kartenIndex);
+    displayCard(kartenIndex); // Name deiner Funktion zum Anzeigen
+});
 
 function rollDice() {
     if (isAnimating || !currentCard) return;
@@ -555,6 +549,7 @@ socket.on('ergebnis_wurf', (daten) => {
 </script>
 </body>
 </html>
+
 
 
 
