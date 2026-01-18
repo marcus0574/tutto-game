@@ -19,6 +19,11 @@ io.on('connection', (socket) => {
     });
 });
 
+socket.on('neuer_spieler', (name) => {
+    console.log(name + " ist beigetreten");
+    io.emit('chat_nachricht', name + " ist jetzt im Spiel!");
+});
+
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log(`Tutto-Server läuft auf Port ${PORT}`);
