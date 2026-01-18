@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Clean UI Edition</title>
+    <title>Tutto - Pro Rules Edition</title>
     <style>
         :root {
             --gold: #ffd700;
@@ -68,13 +68,13 @@
         .active-player { border-left: 4px solid var(--gold); background: rgba(255, 215, 0, 0.1); }
         
         #round-area { 
-            margin-top: auto; padding-top: 20px; border-top: 1px solid #444; 
+            margin-top: auto; padding-top: 10px; border-top: 1px solid #444; 
             text-align: center;
         }
 
         .dice-collection { 
             display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; 
-            margin-top: 15px; min-height: 80px; padding: 10px;
+            margin-top: 10px; min-height: 80px; padding: 10px;
             background: rgba(0,0,0,0.3); border-radius: 12px;
         }
         .mini-die { 
@@ -108,13 +108,12 @@
     <div id="score-list"></div>
     
     <div id="round-area">
-        <div style="font-size: 12px; color: #aaa; letter-spacing: 1px;">AKTUELLE RUNDE</div>
-        <div id="round-display" style="font-size: 42px; color: var(--gold); font-weight: bold; margin: 5px 0;">0</div>
-        <div id="bonus-info" style="font-size: 13px; color: #00ffff; height: 15px;"></div>
+        <div style="font-size: 11px; color: #aaa; letter-spacing: 1px;">PUNKTE DIESE RUNDE</div>
+        <div id="round-display" style="font-size: 42px; color: var(--gold); font-weight: bold; margin: 2px 0;">0</div>
+        <div id="bonus-info" style="font-size: 12px; color: #00ffff; height: 32px; display: flex; align-items: center; justify-content: center;"></div>
         
-        <div style="font-size: 11px; color: #888; margin-top: 20px; text-transform: uppercase;">Gesammelte Würfel</div>
-        <div class="dice-collection" id="collected-dice-container">
-            </div>
+        <div style="font-size: 11px; color: #888; margin-top: 10px; text-transform: uppercase;">Beiseitegelegt</div>
+        <div class="dice-collection" id="collected-dice-container"></div>
     </div>
 </div>
 
@@ -193,19 +192,6 @@
         updateUI();
     }
 
-    function findSafePos(currentDice) {
-        let x, y, overlap, attempts = 0;
-        const size = 110;
-        do {
-            overlap = false;
-            x = 200 + Math.random() * (window.innerWidth - 550);
-            y = 120 + Math.random() * (window.innerHeight - 350);
-            for (let d of currentDice) if (Math.abs(x - d.x) < size && Math.abs(y - d.y) < size) overlap = true;
-            attempts++;
-        } while (overlap && attempts < 500);
-        return {x, y};
-    }
-
     function rollDice() {
         if (!currentCard || isNiete || isAnimatingDice || numDiceToRoll === 0) return;
         rollSound.play().catch(() => {});
@@ -214,35 +200,31 @@
         moveHistory = [];
         dice = [];
         for (let i = 0; i < numDiceToRoll; i++) {
-            let pos = findSafePos(dice);
-            dice.push({ value: Math.floor(Math.random()*6)+1, x: pos.x, y: pos.y, selected: false });
+            let x = 200 + Math.random() * (window.innerWidth - 550);
+            let y = 120 + Math.random() * (window.innerHeight - 350);
+            dice.push({ value: Math.floor(Math.random()*6)+1, x: x, y: y, selected: false });
         }
-        updateUI();
-    }
-
-    function undoLastSelection() {
-        if (moveHistory.length === 0 || isAnimatingDice) return;
-        let lastMove = moveHistory.pop();
-        lastMove.diceIndices.forEach(idx => { 
-            dice[idx].selected = false; 
-            numDiceToRoll++; 
-            selectedInRound.pop(); 
-        });
-        roundScore -= lastMove.points;
         updateUI();
     }
 
     function savePoints() {
         if (roundScore === 0 || isNiete || !currentCard || isAnimatingDice) return;
-        if (currentCard.name === "KLEEBLATT" || (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) || (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0)) return;
+        
+        // Zwangskarten
+        if (currentCard.name === "KLEEBLATT") return; 
+        if (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) return;
 
         let finalPoints = roundScore;
-        if (currentCard.name.startsWith("BONUS")) finalPoints += currentCard.bonus;
-        if (currentCard.name === "x2 VERDOPPLER") finalPoints *= 2;
-        if (currentCard.name === "PLUS/MINUS" && numDiceToRoll === 0) {
-            let leadIdx = scores.indexOf(Math.max(...scores));
-            if (scores[leadIdx] > 0) scores[leadIdx] = Math.max(0, scores[leadIdx] - 1000);
-            finalPoints = 1000;
+        
+        // BONUS REGEL: Nur bei Tutto (numDiceToRoll === 0) werden Karteboni addiert
+        if (numDiceToRoll === 0) {
+            if (currentCard.name.startsWith("BONUS")) finalPoints += currentCard.bonus;
+            if (currentCard.name === "x2 VERDOPPLER") finalPoints *= 2;
+            if (currentCard.name === "PLUS/MINUS") {
+                let leadIdx = scores.indexOf(Math.max(...scores));
+                if (scores[leadIdx] > 0) scores[leadIdx] = Math.max(0, scores[leadIdx] - 1000);
+                finalPoints = 1000;
+            }
         }
 
         scores[currentPlayer] += finalPoints;
@@ -258,30 +240,51 @@
     }
 
     function updateUI() {
-        // Spielerliste oben
         document.getElementById('score-list').innerHTML = players.map((p, i) => `
             <div class="score-entry ${i === currentPlayer ? 'active-player' : ''}">
                 <div style="font-size: 14px; font-weight: bold;">${p}</div>
                 <div style="font-size: 18px; color: var(--gold);">${scores[i]}</div>
             </div>`).join("");
         
-        // Aktuelle Runde Display
         document.getElementById('round-display').innerText = roundScore;
         document.getElementById('deck-info').innerText = "Karten im Stapel: " + cardDeck.length;
-        
-        // Gesammelte Würfel unten in der Sidebar
         document.getElementById('collected-dice-container').innerHTML = selectedInRound.map(v => `<div class="mini-die">${v}</div>`).join("");
         
         let bonusText = "";
         if(currentCard) {
-            if(currentCard.bonus > 0 && currentCard.name !== "PLUS/MINUS") bonusText = "+ " + currentCard.bonus + " Bonus";
-            if(currentCard.name === "x2 VERDOPPLER") bonusText = "x2 Verdoppler aktiv!";
-            if(currentCard.name === "PLUS/MINUS") bonusText = "Tutto Ziel: 1000 Pkt";
+            const isTutto = (numDiceToRoll === 0);
+            if(currentCard.name.startsWith("BONUS")) {
+                bonusText = isTutto ? `<span style="color:#00ff00">+ ${currentCard.bonus} erreicht!</span>` : `<span style="color:#aaa">Tutto für +${currentCard.bonus} nötig</span>`;
+            } else if(currentCard.name === "x2 VERDOPPLER") {
+                bonusText = isTutto ? `<span style="color:#00ff00">Punkte verdoppelt!</span>` : `<span style="color:#aaa">Tutto für x2 nötig</span>`;
+            } else if(currentCard.name === "PLUS/MINUS") {
+                bonusText = isTutto ? `<span style="color:#00ff00">Ziel erreicht (1000 Pkt)</span>` : `<span style="color:#aaa">Tutto für 1000 Pkt nötig</span>`;
+            }
         }
-        document.getElementById('bonus-info').innerText = bonusText;
+        document.getElementById('bonus-info').innerHTML = bonusText;
 
         document.getElementById('roll-btn').disabled = (numDiceToRoll === 0 || !currentCard || isNiete);
         document.getElementById('save-btn').disabled = (roundScore === 0 || isNiete || (currentCard && (currentCard.name === "KLEEBLATT" || (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) || (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0))));
+    }
+
+    function checkNieteFinal() {
+        let counts = {};
+        dice.forEach(d => { if(!d.selected) counts[d.value] = (counts[d.value] || 0) + 1; });
+        if (currentCard.name === "STRASSE") {
+            let needed = [1,2,3,4,5,6].filter(n => !selectedInRound.includes(n));
+            let available = dice.filter(d => !d.selected).map(d => d.value);
+            return !needed.some(n => available.includes(n));
+        }
+        for (let v in counts) if (counts[v] >= 3 || v == 1 || v == 5) return false;
+        return true;
+    }
+
+    function undoLastSelection() {
+        if (moveHistory.length === 0 || isAnimatingDice) return;
+        let lastMove = moveHistory.pop();
+        lastMove.diceIndices.forEach(idx => { dice[idx].selected = false; numDiceToRoll++; selectedInRound.pop(); });
+        roundScore -= lastMove.points;
+        updateUI();
     }
 
     function drawDesignerCard(x, y, card) {
@@ -299,10 +302,7 @@
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (currentCard) {
-            if (cardX < 20) cardX += 15;
-            drawDesignerCard(cardX, 150, currentCard);
-        }
+        if (currentCard) { if (cardX < 20) cardX += 15; drawDesignerCard(cardX, 150, currentCard); }
         dice.forEach(d => {
             if (!d.selected) {
                 let dx = d.x, dy = d.y, val = d.value;
@@ -319,18 +319,6 @@
             }
         }
         requestAnimationFrame(draw);
-    }
-
-    function checkNieteFinal() {
-        let counts = {};
-        dice.forEach(d => { if(!d.selected) counts[d.value] = (counts[d.value] || 0) + 1; });
-        if (currentCard.name === "STRASSE") {
-            let needed = [1,2,3,4,5,6].filter(n => !selectedInRound.includes(n));
-            let available = dice.filter(d => !d.selected).map(d => d.value);
-            return !needed.some(n => available.includes(n));
-        }
-        for (let v in counts) if (counts[v] >= 3 || v == 1 || v == 5) return false;
-        return true;
     }
 
     canvas.addEventListener('mousedown', (e) => {
