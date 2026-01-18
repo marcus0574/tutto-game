@@ -3,86 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Premium Edition</title>
+    <title>Tutto - Designer Edition</title>
     <style>
         :root {
             --gold: #ffd700;
-            --felt: #1a5e1a;
-            --panel: rgba(0, 0, 0, 0.85);
+            --panel: rgba(0, 0, 0, 0.9);
+            --card-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
         body { 
             margin: 0; 
             background: radial-gradient(circle, #2e7d32 0%, #1b5e20 100%); 
             color: white; 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
+            font-family: 'Segoe UI', sans-serif; 
             overflow: hidden; 
             touch-action: none; 
             user-select: none; 
         }
         canvas { display: block; }
         
+        /* Setup Screen */
         #setup-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100;
         }
         .setup-box { 
-            background: #222; padding: 40px; border: 4px solid var(--gold); 
+            background: #222; padding: 40px; border: 3px solid var(--gold); 
             border-radius: 25px; text-align: center; max-width: 450px;
-            box-shadow: 0 0 30px rgba(0,0,0,1);
         }
         input { 
-            padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #555; 
+            padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #444; 
             margin: 8px; width: 85%; background: #111; color: white; 
         }
         
+        /* Sidebar */
         #sidebar { 
             position: absolute; right: 0; top: 0; width: 260px; height: 100%; 
             background: var(--panel); border-left: 5px solid var(--gold); 
-            padding: 20px; box-sizing: border-box; box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+            padding: 20px; box-sizing: border-box;
         }
-        .controls { 
-            position: absolute; bottom: 30px; left: 350px; display: flex; gap: 15px; 
-        }
+        
+        .controls { position: absolute; bottom: 30px; left: 350px; display: flex; gap: 15px; }
         
         button { 
             padding: 15px 25px; font-size: 18px; font-weight: bold; border: none; 
             border-radius: 12px; cursor: pointer; color: white; 
-            box-shadow: 0 5px 0px rgba(0,0,0,0.4); transition: all 0.1s;
+            box-shadow: 0 5px 0px rgba(0,0,0,0.4); transition: 0.1s;
         }
         button:active { transform: translateY(3px); box-shadow: 0 2px 0px rgba(0,0,0,0.4); }
-        button:disabled { background: #444 !important; opacity: 0.4; cursor: not-allowed; }
         
         #roll-btn { background: linear-gradient(#4a4ae6, #1e1e96); }
         #save-btn { background: linear-gradient(#e64a4a, #961e1e); }
         #undo-btn { background: linear-gradient(#777, #333); }
-        #start-btn { background: var(--gold); color: black; width: 100%; margin-top: 20px; font-size: 22px; }
+        #start-btn { background: var(--gold); color: black; width: 100%; margin-top: 20px; }
         #card-btn { 
-            position: absolute; top: 350px; left: 20px; background: var(--gold); 
+            position: absolute; top: 380px; left: 25px; background: var(--gold); 
             color: black; width: 130px; padding: 12px; border-radius: 12px; font-weight: bold;
+            border: none; box-shadow: var(--card-shadow);
         }
 
-        .score-entry { 
-            margin-bottom: 12px; padding: 15px; border-radius: 12px; 
-            background: rgba(255,255,255,0.07); border: 1px solid transparent;
-        }
+        .score-entry { margin-bottom: 12px; padding: 15px; border-radius: 12px; background: rgba(255,255,255,0.07); }
         .active-player { border: 1px solid var(--gold); background: rgba(255, 215, 0, 0.1); }
-        #msg-display { 
-            position: absolute; top: 60px; left: 180px; font-size: 32px; 
-            color: var(--gold); font-weight: bold; text-shadow: 3px 3px 6px black;
-        }
+        #msg-display { position: absolute; top: 60px; left: 180px; font-size: 32px; color: var(--gold); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="setup-screen">
     <div class="setup-box">
-        <h1 style="color: var(--gold); margin-top: 0;">TUTTO PREMIUM</h1>
+        <h1 style="color: var(--gold); margin-top: 0;">TUTTO DESIGNER</h1>
         <div id="player-inputs">
-            <input type="text" id="p1" placeholder="Name Spieler 1" value="Spieler 1">
-            <input type="text" id="p2" placeholder="Name Spieler 2" value="Spieler 2">
-            <input type="text" id="p3" placeholder="Name Spieler 3 (optional)">
-            <input type="text" id="p4" placeholder="Name Spieler 4 (optional)">
+            <input type="text" id="p1" value="Spieler 1">
+            <input type="text" id="p2" value="Spieler 2">
+            <input type="text" id="p3" placeholder="Name Spieler 3">
+            <input type="text" id="p4" placeholder="Name Spieler 4">
         </div>
         <button id="start-btn" onclick="initGame()">SPIEL STARTEN</button>
     </div>
@@ -93,10 +87,9 @@
     <div id="score-list"></div>
     <hr style="border: 0.5px solid #444; margin: 20px 0;">
     <div id="round-info" style="text-align: center;">
-        <div style="font-size: 14px; color: #aaa;">AKTUELLE RUNDE</div>
+        <div style="font-size: 14px; color: #aaa;">RUNDE</div>
         <div id="round-display" style="font-size: 36px; color: var(--gold); font-weight: bold;">0</div>
     </div>
-    <div id="selected-list" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;"></div>
 </div>
 
 <div id="msg-display">Karte ziehen!</div>
@@ -115,11 +108,8 @@
     const rollSound = new Audio('assets/dice_roll.mp3');
     
     let players = [], scores = [], currentPlayer = 0;
-    let currentCard = null, dice = [], selectedInRound = [];
-    let numDiceToRoll = 6, roundScore = 0, isNiete = false;
-    let moveHistory = []; 
-
-    let isAnimatingDice = false, diceAnimTimer = 0, cardX = -200, particles = [];
+    let currentCard = null, dice = [], selectedInRound = [], numDiceToRoll = 6, roundScore = 0, isNiete = false;
+    let moveHistory = [], isAnimatingDice = false, diceAnimTimer = 0, cardX = -250, particles = [];
 
     const diceImages = [];
     for(let i=1; i<=6; i++) {
@@ -134,24 +124,19 @@
             let val = document.getElementById('p' + i).value.trim();
             if(val !== "") players.push(val);
         }
-        if(players.length < 1) players = ["Spieler 1"];
         scores = players.map(() => 0);
         document.getElementById('setup-screen').style.display = 'none';
         updateUI();
     }
 
-    // Verbesserte Positionsfindung ohne Überlappung
     function findSafePos(currentDice) {
-        let x, y, overlap;
-        let attempts = 0;
-        const size = 105; // Puffer für 90px Würfel
+        let x, y, overlap, attempts = 0;
+        const size = 110;
         do {
             overlap = false;
-            x = 180 + Math.random() * (window.innerWidth - 520);
-            y = 120 + Math.random() * (window.innerHeight - 340);
-            for (let d of currentDice) {
-                if (Math.abs(x - d.x) < size && Math.abs(y - d.y) < size) overlap = true;
-            }
+            x = 200 + Math.random() * (window.innerWidth - 550);
+            y = 120 + Math.random() * (window.innerHeight - 350);
+            for (let d of currentDice) if (Math.abs(x - d.x) < size && Math.abs(y - d.y) < size) overlap = true;
             attempts++;
         } while (overlap && attempts < 500);
         return {x, y};
@@ -163,53 +148,38 @@
         isAnimatingDice = true;
         diceAnimTimer = 25;
         moveHistory = [];
-
-        if (numDiceToRoll === 0) { 
-            numDiceToRoll = 6; 
-            selectedInRound = []; 
-            createParticles(window.innerWidth/2, window.innerHeight/2, '#ffd700');
-        }
-        
+        if (numDiceToRoll === 0) { numDiceToRoll = 6; selectedInRound = []; }
         dice = [];
         for (let i = 0; i < numDiceToRoll; i++) {
             let pos = findSafePos(dice);
-            dice.push({ 
-                value: Math.floor(Math.random() * 6) + 1, 
-                x: pos.x, 
-                y: pos.y, 
-                selected: false 
-            });
+            dice.push({ value: Math.floor(Math.random()*6)+1, x: pos.x, y: pos.y, selected: false });
         }
+        updateUI();
+    }
+
+    function drawCard() {
+        if (currentCard || isNiete) return;
+        cardX = -250;
+        const deck = [
+            {name: "BONUS 200", color: "#2b5ab3", bonus: 200, icon: "★"},
+            {name: "BONUS 400", color: "#2b5ab3", bonus: 400, icon: "★★"},
+            {name: "STOP", color: "#b32b2b", bonus: 0, icon: "✕"},
+            {name: "TUTTO", color: "#d4af37", bonus: 0, icon: "❂"},
+            {name: "STRASSE", color: "#2bb3b3", bonus: 2000, icon: "➔"},
+            {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣"}
+        ];
+        currentCard = deck[Math.floor(Math.random() * deck.length)];
+        selectedInRound = [];
+        if (currentCard.name === "STOP") { isNiete = true; document.getElementById('msg-display').innerText = "STOP!"; }
+        else { document.getElementById('msg-display').innerText = currentCard.name; }
         updateUI();
     }
 
     function undoLastSelection() {
         if (moveHistory.length === 0 || isAnimatingDice) return;
         let lastMove = moveHistory.pop();
-        lastMove.diceIndices.forEach(idx => {
-            dice[idx].selected = false;
-            numDiceToRoll++;
-            selectedInRound.pop();
-        });
+        lastMove.diceIndices.forEach(idx => { dice[idx].selected = false; numDiceToRoll++; selectedInRound.pop(); });
         roundScore -= lastMove.points;
-        updateUI();
-    }
-
-    function drawCard() {
-        if (currentCard || isNiete) return;
-        cardX = -200;
-        const deck = [
-            {name: "BONUS 200", color: "#3232c8", bonus: 200},
-            {name: "BONUS 400", color: "#3232c8", bonus: 400},
-            {name: "STOP", color: "#c83232", bonus: 0},
-            {name: "TUTTO", color: "#ffd700", bonus: 0},
-            {name: "STRASSE", color: "#00ffff", bonus: 2000},
-            {name: "KLEEBLATT", color: "#ff00ff", bonus: 0}
-        ];
-        currentCard = deck[Math.floor(Math.random() * deck.length)];
-        selectedInRound = [];
-        if (currentCard.name === "STOP") { isNiete = true; document.getElementById('msg-display').innerText = "STOP!"; }
-        else { document.getElementById('msg-display').innerText = currentCard.name + "!"; }
         updateUI();
     }
 
@@ -217,69 +187,71 @@
         if (roundScore === 0 || isNiete || !currentCard || isAnimatingDice) return;
         if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT") return;
         scores[currentPlayer] += (roundScore + (currentCard.bonus || 0));
-        if (scores[currentPlayer] >= 6000) { alert("SIEG FÜR " + players[currentPlayer] + "!"); location.reload(); return; }
+        if (scores[currentPlayer] >= 6000) { alert("SIEG!"); location.reload(); return; }
         nextTurn();
     }
 
     function nextTurn() {
         currentPlayer = (currentPlayer + 1) % players.length;
-        roundScore = 0; numDiceToRoll = 6; dice = []; currentCard = null; selectedInRound = []; isNiete = false; moveHistory = [];
+        roundScore = 0; numDiceToRoll = 6; dice = []; currentCard = null; isNiete = false; moveHistory = [];
         document.getElementById('msg-display').innerText = "Karte ziehen!";
         updateUI();
     }
 
-    function createParticles(x, y, color) {
-        for(let i=0; i<15; i++) {
-            particles.push({ x, y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, life: 1, color });
-        }
-    }
-
     function updateUI() {
-        let list = document.getElementById('score-list');
-        list.innerHTML = players.map((p, i) => `
+        document.getElementById('score-list').innerHTML = players.map((p, i) => `
             <div class="score-entry ${i === currentPlayer ? 'active-player' : ''}">
-                <strong>${p}</strong><br>
-                <span style="font-size: 20px; color: ${i === currentPlayer ? 'var(--gold)' : 'white'}">${scores[i]}</span>
+                <strong>${p}</strong><br><span style="font-size: 20px;">${scores[i]}</span>
             </div>`).join("");
         document.getElementById('round-display').innerText = roundScore;
-        document.getElementById('selected-list').innerHTML = selectedInRound.map(v => 
-            `<div style="background:white; color:black; padding:4px 8px; border-radius:6px; font-weight:bold; border:1px solid #999">🎲 ${v}</div>`).join("");
     }
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    function drawDesignerCard(x, y, card) {
+        const w = 150, h = 210, r = 15;
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // Schatten & Hintergrund
+        ctx.shadowBlur = 20; ctx.shadowColor = "rgba(0,0,0,0.5)";
+        ctx.fillStyle = "white";
+        ctx.beginPath(); ctx.roundRect(0, 0, w, h, r); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Farbiger Innenrahmen
+        ctx.strokeStyle = card.color;
+        ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.roundRect(10, 10, w-20, h-20, r-5); ctx.stroke();
+
+        // Icon
+        ctx.fillStyle = card.color;
+        ctx.font = "bold 40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(card.icon, w/2, h/2 - 10);
+
+        // Text
+        ctx.font = "bold 16px 'Segoe UI'";
+        ctx.fillText(card.name, w/2, h/2 + 35);
+        if(card.bonus > 0) {
+            ctx.font = "14px Arial";
+            ctx.fillText("+" + card.bonus, w/2, h/2 + 60);
+        }
+        ctx.restore();
+    }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
         if (currentCard) {
             if (cardX < 20) cardX += 15;
-            ctx.fillStyle = currentCard.color;
-            ctx.shadowBlur = 20; ctx.shadowColor = "rgba(0,0,0,0.5)";
-            ctx.fillRect(cardX, 150, 140, 190);
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "white"; ctx.font = "bold 18px Arial";
-            ctx.fillText(currentCard.name, cardX + 15, 250);
+            drawDesignerCard(cardX, 150, currentCard);
         }
-
-        dice.forEach((d, i) => {
+        dice.forEach(d => {
             if (!d.selected) {
                 let dx = d.x, dy = d.y, val = d.value;
-                if (isAnimatingDice) {
-                    // Schüttel-Versatz
-                    dx += (Math.random()-0.5)*15; 
-                    dy += (Math.random()-0.5)*15;
-                    val = Math.floor(Math.random()*6)+1;
-                }
-                if (diceImages[val]?.complete) {
-                    ctx.drawImage(diceImages[val], dx, dy, 90, 90);
-                } else {
-                    ctx.fillStyle = "white"; ctx.fillRect(dx, dy, 90, 90);
-                    ctx.fillStyle = "black"; ctx.font = "bold 30px Arial"; ctx.fillText(val, dx+32, dy+55);
-                }
+                if (isAnimatingDice) { dx += (Math.random()-0.5)*15; dy += (Math.random()-0.5)*15; val = Math.floor(Math.random()*6)+1; }
+                if (diceImages[val]?.complete) ctx.drawImage(diceImages[val], dx, dy, 90, 90);
+                else { ctx.fillStyle = "white"; ctx.fillRect(dx, dy, 90, 90); }
             }
         });
-
         if (isAnimatingDice) {
             diceAnimTimer--;
             if (diceAnimTimer <= 0) {
@@ -287,14 +259,6 @@
                 if (checkNieteFinal()) { isNiete = true; document.getElementById('msg-display').innerText = "NIETE!"; }
             }
         }
-
-        particles.forEach((p, i) => {
-            p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-            ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 7); ctx.fill();
-            if (p.life <= 0) particles.splice(i, 1);
-        });
-        ctx.globalAlpha = 1;
         requestAnimationFrame(draw);
     }
 
@@ -310,40 +274,29 @@
         if (isNiete || isAnimatingDice) { if(isNiete) nextTurn(); return; }
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-        
         dice.forEach((d, idx) => {
             if (!d.selected && mx > d.x && mx < d.x+90 && my > d.y && my < d.y+90) {
                 let val = d.value, p = 0, indices = [];
                 if (currentCard.name === "STRASSE") {
-                    if (!selectedInRound.includes(val)) {
-                        d.selected = true; selectedInRound.push(val); numDiceToRoll--;
-                        indices.push(idx); if (selectedInRound.length === 6) p = 2000;
-                    }
+                    if (!selectedInRound.includes(val)) { d.selected = true; selectedInRound.push(val); numDiceToRoll--; indices.push(idx); if (selectedInRound.length === 6) p = 2000; }
                 } else {
                     let active = dice.filter(die => !die.selected);
                     let counts = {}; active.forEach(die => counts[die.value] = (counts[die.value] || 0) + 1);
                     if (counts[val] >= 3) {
-                        let c = 0; dice.forEach((die, i) => {
-                            if (die.value === val && !die.selected && c < 3) {
-                                die.selected = true; selectedInRound.push(val); numDiceToRoll--; indices.push(i); c++;
-                            }
-                        });
+                        let c = 0; dice.forEach((die, i) => { if (die.value === val && !die.selected && c < 3) { die.selected = true; selectedInRound.push(val); numDiceToRoll--; indices.push(i); c++; } });
                         if(currentCard.name !== "KLEEBLATT") p = (val === 1) ? 1000 : val * 100;
                     } else if (val === 1 || val === 5) {
                         d.selected = true; selectedInRound.push(val); numDiceToRoll--; indices.push(idx);
                         if(currentCard.name !== "KLEEBLATT") p = (val === 1) ? 100 : 50;
                     }
                 }
-                if (indices.length > 0) {
-                    roundScore += p;
-                    moveHistory.push({ diceIndices: indices, points: p });
-                    createParticles(mx, my, '#fff');
-                    updateUI();
-                }
+                if (indices.length > 0) { roundScore += p; moveHistory.push({ diceIndices: indices, points: p }); updateUI(); }
                 if (numDiceToRoll === 0 && currentCard.name === "KLEEBLATT") { alert("KLEEBLATT TUTTO!"); location.reload(); }
             }
         });
     });
+
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     draw();
 </script>
 </body>
