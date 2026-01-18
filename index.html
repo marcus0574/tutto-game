@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Ultimate Edition</title>
+    <title>Tutto - Balanced Edition</title>
     <style>
         :root {
             --gold: #ffd700;
@@ -64,13 +64,14 @@
         .score-entry { margin-bottom: 12px; padding: 15px; border-radius: 12px; background: rgba(255,255,255,0.07); }
         .active-player { border: 1px solid var(--gold); background: rgba(255, 215, 0, 0.1); }
         #msg-display { position: absolute; top: 60px; left: 180px; font-size: 32px; color: var(--gold); font-weight: bold; }
+        #deck-info { position: absolute; top: 355px; left: 25px; font-size: 12px; color: #aaa; }
     </style>
 </head>
 <body>
 
 <div id="setup-screen">
     <div class="setup-box">
-        <h1 style="color: var(--gold); margin-top: 0;">TUTTO ULTIMATE</h1>
+        <h1 style="color: var(--gold); margin-top: 0;">TUTTO</h1>
         <div id="player-inputs">
             <input type="text" id="p1" value="Spieler 1">
             <input type="text" id="p2" value="Spieler 2">
@@ -93,6 +94,7 @@
 </div>
 
 <div id="msg-display">Karte ziehen!</div>
+<div id="deck-info">Karten im Stapel: 54</div>
 <canvas id="gameCanvas"></canvas>
 
 <div class="controls">
@@ -110,6 +112,35 @@
     let players = [], scores = [], currentPlayer = 0;
     let currentCard = null, dice = [], selectedInRound = [], numDiceToRoll = 6, roundScore = 0, isNiete = false;
     let moveHistory = [], isAnimatingDice = false, diceAnimTimer = 0, cardX = -250, particles = [];
+    
+    // Kartenstapel Logik
+    let cardDeck = [];
+    
+    function createDeck() {
+        const proto = [
+            {name: "BONUS 200", color: "#2b5ab3", bonus: 200, icon: "★", count: 10},
+            {name: "BONUS 400", color: "#2b5ab3", bonus: 400, icon: "★★", count: 10},
+            {name: "STOP", color: "#b32b2b", bonus: 0, icon: "✕", count: 10},
+            {name: "TUTTO", color: "#d4af37", bonus: 0, icon: "❂", count: 5},
+            {name: "STRASSE", color: "#2bb3b3", bonus: 2000, icon: "➔", count: 5},
+            {name: "x2 VERDOPPLER", color: "#e67e22", bonus: 0, icon: "x2", count: 5},
+            {name: "PLUS/MINUS", color: "#27ae60", bonus: 1000, icon: "±", count: 5},
+            {name: "ZWANGRUNDE", color: "#7f8c8d", bonus: 0, icon: "↻", count: 2},
+            {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣", count: 2}
+        ];
+        
+        let newDeck = [];
+        proto.forEach(p => {
+            for(let i=0; i<p.count; i++) newDeck.push({...p});
+        });
+        
+        // Fisher-Yates Shuffle
+        for (let i = newDeck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+        }
+        return newDeck;
+    }
 
     const diceImages = [];
     for(let i=1; i<=6; i++) {
@@ -125,7 +156,34 @@
             if(val !== "") players.push(val);
         }
         scores = players.map(() => 0);
+        cardDeck = createDeck();
         document.getElementById('setup-screen').style.display = 'none';
+        updateUI();
+    }
+
+    function drawCard() {
+        if (isNiete || isAnimatingDice) return;
+        if (currentCard && numDiceToRoll !== 0) return;
+
+        if (cardDeck.length === 0) {
+            cardDeck = createDeck();
+            console.log("Deck neu gemischt!");
+        }
+
+        cardX = -250;
+        currentCard = cardDeck.pop();
+        selectedInRound = [];
+        
+        if (numDiceToRoll === 0) {
+            numDiceToRoll = 6;
+        }
+
+        if (currentCard.name === "STOP") { 
+            isNiete = true; 
+            document.getElementById('msg-display').innerText = "STOP!"; 
+        } else { 
+            document.getElementById('msg-display').innerText = currentCard.name; 
+        }
         updateUI();
     }
 
@@ -143,53 +201,15 @@
     }
 
     function rollDice() {
-        if (!currentCard || isNiete || isAnimatingDice) return;
-        if (numDiceToRoll === 0) return;
-        
+        if (!currentCard || isNiete || isAnimatingDice || numDiceToRoll === 0) return;
         rollSound.play().catch(() => {});
         isAnimatingDice = true;
         diceAnimTimer = 25;
         moveHistory = [];
-        
         dice = [];
         for (let i = 0; i < numDiceToRoll; i++) {
             let pos = findSafePos(dice);
             dice.push({ value: Math.floor(Math.random()*6)+1, x: pos.x, y: pos.y, selected: false });
-        }
-        updateUI();
-    }
-
-    function drawCard() {
-        if (isNiete || isAnimatingDice) return;
-        if (currentCard && numDiceToRoll !== 0) return;
-
-        cardX = -250;
-        const deck = [
-            {name: "BONUS 200", color: "#2b5ab3", bonus: 200, icon: "★"},
-            {name: "BONUS 400", color: "#2b5ab3", bonus: 400, icon: "★★"},
-            {name: "STOP", color: "#b32b2b", bonus: 0, icon: "✕"},
-            {name: "TUTTO", color: "#d4af37", bonus: 0, icon: "❂"},
-            {name: "STRASSE", color: "#2bb3b3", bonus: 2000, icon: "➔"},
-            {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣"},
-            {name: "x2 VERDOPPLER", color: "#e67e22", bonus: 0, icon: "x2"},
-            {name: "PLUS/MINUS", color: "#27ae60", bonus: 1000, icon: "±"},
-            {name: "ZWANGRUNDE", color: "#7f8c8d", bonus: 0, icon: "↻"}
-        ];
-        
-        if (numDiceToRoll === 0) {
-            numDiceToRoll = 6;
-            if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT" || currentCard.name === "PLUS/MINUS") {
-                currentCard = deck[Math.floor(Math.random() * deck.length)];
-            }
-        } else {
-            currentCard = deck[Math.floor(Math.random() * deck.length)];
-        }
-
-        if (currentCard.name === "STOP") { 
-            isNiete = true; 
-            document.getElementById('msg-display').innerText = "STOP!"; 
-        } else { 
-            document.getElementById('msg-display').innerText = currentCard.name; 
         }
         updateUI();
     }
@@ -204,19 +224,12 @@
 
     function savePoints() {
         if (roundScore === 0 || isNiete || !currentCard || isAnimatingDice) return;
-        
-        // Zwangskarten prüfen
-        if (currentCard.name === "KLEEBLATT") return; 
-        if (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) return;
-        if (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0) return;
+        if (currentCard.name === "KLEEBLATT" || (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) || (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0)) return;
 
         let finalPoints = roundScore;
-        
-        // Bonus Logik
         if (currentCard.name.startsWith("BONUS")) finalPoints += currentCard.bonus;
         if (currentCard.name === "x2 VERDOPPLER") finalPoints *= 2;
         if (currentCard.name === "PLUS/MINUS" && numDiceToRoll === 0) {
-            // Führenden Spieler finden
             let leadIdx = scores.indexOf(Math.max(...scores));
             if (scores[leadIdx] > 0) scores[leadIdx] = Math.max(0, scores[leadIdx] - 1000);
             finalPoints = 1000;
@@ -239,8 +252,9 @@
             <div class="score-entry ${i === currentPlayer ? 'active-player' : ''}">
                 <strong>${p}</strong><br><span style="font-size: 20px;">${scores[i]}</span>
             </div>`).join("");
-        
         document.getElementById('round-display').innerText = roundScore;
+        document.getElementById('deck-info').innerText = "Karten im Stapel: " + cardDeck.length;
+        
         let bonusText = "";
         if(currentCard) {
             if(currentCard.bonus > 0 && currentCard.name !== "PLUS/MINUS") bonusText = "+ " + currentCard.bonus + " Bonus";
@@ -248,17 +262,8 @@
             if(currentCard.name === "PLUS/MINUS") bonusText = "Tutto = 1000 Pkt & Gegner -1000";
         }
         document.getElementById('bonus-info').innerText = bonusText;
-
         document.getElementById('roll-btn').disabled = (numDiceToRoll === 0 || !currentCard || isNiete);
-        
-        // Sichern Button Logik
-        let canSave = (roundScore > 0 && !isNiete);
-        if(currentCard && (currentCard.name === "KLEEBLATT" || 
-           (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) ||
-           (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0))) {
-            canSave = false;
-        }
-        document.getElementById('save-btn').disabled = !canSave;
+        document.getElementById('save-btn').disabled = (roundScore === 0 || isNiete || (currentCard && (currentCard.name === "KLEEBLATT" || (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) || (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0))));
     }
 
     function drawDesignerCard(x, y, card) {
@@ -333,7 +338,7 @@
                     }
                 }
                 if (indices.length > 0) { roundScore += p; moveHistory.push({ diceIndices: indices, points: p }); updateUI(); }
-                if (numDiceToRoll === 0) { document.getElementById('msg-display').innerText = "TUTTO! Sichern oder Neue Karte?"; updateUI(); }
+                if (numDiceToRoll === 0) { document.getElementById('msg-display').innerText = "TUTTO!"; updateUI(); }
             }
         });
     });
