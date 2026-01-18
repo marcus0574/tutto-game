@@ -132,7 +132,6 @@
         .hs-entry { display: flex; justify-content: space-between; padding: 6px 0; color: #bbb; border-bottom: 1px solid #222; }
         .hs-entry:last-child { border: none; }
     </style>
-    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
@@ -163,7 +162,7 @@
             <option value="10000">10.000 Punkte</option>
         </select>
 
-        <button style="background: var(--gold); color: black; width: 100%; margin-top: 30px; font-weight: 900; height: 65px; border-radius: 18px; font-size: 24px;" onclick="startGame()">JETZT STARTEN</button>
+        <button style="background: var(--gold); color: black; width: 100%; margin-top: 30px; font-weight: 900; height: 65px; border-radius: 18px; font-size: 24px;" id="start-game-btn">JETZT STARTEN</button>
         
         <div class="highscore-list" id="highscore-list">
             <b style="color:var(--gold); display: block; margin-bottom: 12px; font-size: 15px; letter-spacing: 1.5px;">BESTENLISTE (TOP 5)</b>
@@ -199,16 +198,9 @@
 <button id="card-btn" onclick="handleCardClick()" style="display:none">KARTE ZIEHEN</button>
 
 <script>
-    /* --- INTERNE LOGIK --- */
-    let meinName = prompt("Wie heißt du?");
-    socket.emit('neuer_spieler', meinName);
-    
-    // Wir füllen die lokalen Würfel-Variablen mit den Server-Werten
-    currentDiceValues = daten.werte;
-    
-    // Wir starten die Animation für ALLE Spieler gleichzeitig
-    startDiceAnimation(); 
-});
+    /* --- MULTIPLAYER VERBINDUNG --- */
+    const socket = io(); 
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -221,7 +213,6 @@
     /* --- BILDER & SOUNDS --- */
     const cardImages = {}, diceImages = {};
     const deckImg = new Image(); deckImg.src = 'assets/stapel.png';
-    
     const rollSound = new Audio('assets/dice_roll.mp3');
     const cardSound = new Audio('assets/card-sounds-35956.mp3');
     const nieteSound = new Audio('assets/niete.mp3');
@@ -245,18 +236,85 @@
         updateHighscoreDisplay();
     }
 
+    /* --- MULTIPLAYER LOGIK --- */
+    
+    // 1. Spiel starten für alle
+    document.getElementById('start-game-btn').addEventListener('click', () => {
+        const setupData = {
+            players: [
+                document.getElementById('p1').value || "Spieler 1",
+                document.getElementById('p2').value || "Spieler 2",
+                document.getElementById('p3').value,
+                document.getElementById('p4').value
+            ].filter(n => n !== ""),
+            winLimit: document.getElementById('win-limit').value
+        };
+        socket.emit('spiel_starten', setupData);
+    });
+
+    socket.on('spiel_start_bestaetigung', (data) => {
+        players = data.players;
+        scores = players.map(() => 0);
+        winScore = parseInt(data.winLimit);
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('card-btn').style.display = 'block';
+        updateUI();
+    });
+
+    // 2. Würfeln synchronisieren
+    function rollDice() {
+        if (isAnimating || !currentCard) return;
+        socket.emit('anfrage_wurf', { anzahl: numDiceToRoll });
+    }
+
+    socket.on('ergebnis_wurf', (daten) => {
+        startDiceAnimation(daten.werte);
+    });
+
+    function startDiceAnimation(serverWerte) {
+        isAnimating = true;
+        rollSound.play().catch(e=>{});
+        
+        // Wir erstellen die Würfel-Objekte mit den Werten vom Server
+        dice = serverWerte.map((val, i) => ({
+            val: val,
+            x: 350 + (i * 110),
+            y: -150,
+            targetY: canvas.height / 2 - 45,
+            rot: Math.random() * Math.PI * 2,
+            sel: false
+        }));
+
+        setTimeout(() => {
+            isAnimating = false;
+            checkNiete();
+            updateUI();
+        }, 1200);
+    }
+
+    // 3. Karten ziehen synchronisieren
+    function handleCardClick() {
+        if (isAnimating) return;
+        if (!currentCard || numDiceToRoll === 0) {
+            socket.emit('ziehe_karte');
+        }
+    }
+
+    socket.on('neue_karte', (kartenDaten) => {
+        cardSound.play().catch(e=>{});
+        currentCard = kartenDaten; 
+        cardX = -350; // Reset für Animation
+        document.getElementById('status-text').innerText = currentCard.name;
+        updateUI();
+    });
+
+    /* --- DEINE ORIGINALEN FUNKTIONEN (ANGEPASST) --- */
+
     function updateHighscoreDisplay() {
         const hs = JSON.parse(localStorage.getItem('tutto_hs_2026_v2') || "[]");
         document.getElementById('hs-entries').innerHTML = hs.length > 0 ? 
             hs.map(e => `<div class="hs-entry"><span>${e.name}</span><b>${e.score} Pkt.</b></div>`).join("") : 
             "<div style='color:#444; font-size:12px; text-align:center;'>Noch keine Einträge</div>";
-    }
-
-    function saveToHighscore(name, score) {
-        let hs = JSON.parse(localStorage.getItem('tutto_hs_2026_v2') || "[]");
-        hs.push({name, score});
-        hs.sort((a,b) => b.score - a.score);
-        localStorage.setItem('tutto_hs_2026_v2', JSON.stringify(hs.slice(0, 5)));
     }
 
     function createParticles(x, y, color, count) {
@@ -273,7 +331,6 @@
     function showDialog(title, text, type, callback) {
         if(type === 'niete') nieteSound.play().catch(e=>{});
         if(type === 'win') winSound.play().catch(e=>{});
-        
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-text').innerText = text;
         document.getElementById('modal-overlay').style.display = 'flex';
@@ -294,82 +351,6 @@
         });
     }
 
-    function createDeck() {
-        let deck = [];
-        deck.push({ name: "KLEEBLATT", type: "kleeblatt", imgKey: "kleeblatt" });
-        for(let i=0; i<5; i++) deck.push({ name: "FEUERWERK", type: "feuerwerk", imgKey: "feuerwerk" });
-        for(let i=0; i<10; i++) deck.push({ name: "STOP", type: "stop", imgKey: "stop" });
-        for(let i=0; i<5; i++) deck.push({ name: "STRASSE", type: "strasse", imgKey: "strasse" });
-        for(let i=0; i<5; i++) deck.push({ name: "PLUS/MINUS", type: "plusminus", imgKey: "plusminus" });
-        for(let i=0; i<5; i++) deck.push({ name: "x2 KARTE", type: "x2", imgKey: "x2" });
-        [200, 300, 400, 500, 600].forEach(v => {
-            for(let i=0; i<5; i++) deck.push({ name: "BONUS " + v, type: "bonus", value: v, imgKey: "bonus" + v });
-        });
-        return deck.sort(() => Math.random() - 0.5);
-    }
-
-    function startGame() {
-        players = [];
-        for(let i=1; i<=4; i++) {
-            let n = document.getElementById('p'+i).value.trim();
-            if(n) players.push(n);
-        }
-        if(players.length === 0) players = ["Gastspieler"];
-        scores = players.map(() => 0);
-        winScore = parseInt(document.getElementById('win-limit').value);
-        cardDeck = createDeck();
-        document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('card-btn').style.display = 'block';
-        updateUI();
-    }
-
-    function handleCardClick() {
-        if (isAnimating) return;
-        if (!currentCard || numDiceToRoll === 0) drawCard();
-    }
-
-  function drawCard() {
-    // Nicht mehr selbst ziehen! Wir fragen den Server:
-    socket.emit('ziehe_karte');
-}
-
-// Und hier empfangen wir die Karte vom Server
-socket.on('neue_karte', (kartenIndex) => {
-    // Hier kommt dein alter Code rein, der die Karte anzeigt
-    // Benutze kartenIndex, um die richtige Karte aus deinem Array zu wählen
-    console.log("Alle ziehen Karte Nr: " + kartenIndex);
-    displayCard(kartenIndex); // Name deiner Funktion zum Anzeigen
-});
-
-function rollDice() {
-    if (isAnimating || !currentCard) return;
-
-    // Wir zählen, wie viele Würfel geworfen werden müssen
-    const diceToRoll = [];
-    diceElements.forEach((dice, index) => {
-        if (!dice.classList.contains('kept')) {
-            diceToRoll.push(index);
-        }
-    });
-
-    const count = diceToRoll.length === 0 ? 6 : diceToRoll.length;
-
-    // JETZT: Nachricht an den Server senden
-    socket.emit('anfrage_wurf', { 
-        anzahl: count,
-        spielerName: players[currentPlayer].name 
-    });
-}
-    // Hier empfangen wir die Würfelzahlen vom Server
-socket.on('ergebnis_wurf', (daten) => {
-    // Wir speichern die vom Server gewürfelten Werte
-    currentDiceValues = daten.werte;
-    
-    // Jetzt starten wir die Animation, die du schon im Code hast
-    // (Deine ursprüngliche Funktion wird jetzt vom Server ausgelöst!)
-    startDiceAnimation(); 
-});
-
     function checkNiete() {
         let counts = {};
         dice.forEach(d => counts[d.val] = (counts[d.val] || 0) + 1);
@@ -382,14 +363,13 @@ socket.on('ergebnis_wurf', (daten) => {
 
         if(!hasValid) {
             document.getElementById('status-text').innerText = "NIETE!";
-            // 2,5 Sekunden Verzögerung vor dem Nieten-Dialog
             setTimeout(() => {
                 if (currentCard.type === "feuerwerk") {
                     showDialog("FEUERWERK", "Punkte bleiben sicher!", 'info', () => finalizePoints(roundScore));
                 } else {
                     showDialog("NIETE", "Deine Punkte verfallen!", 'niete', () => { roundScore = 0; nextTurn(); });
                 }
-            }, 2500);
+            }, 2000);
         }
     }
 
@@ -428,15 +408,14 @@ socket.on('ergebnis_wurf', (daten) => {
         if(numDiceToRoll === 0) {
             createParticles(canvas.width/2, canvas.height/2, "#ffd700", 70);
             document.getElementById('status-text').innerText = "TUTTO!";
-            
             if (currentCard.type === "kleeblatt") {
                 kleeblattTuttos++;
                 if (kleeblattTuttos === 2) {
-                    showDialog("GLÜCKS-SIEG!", "Zwei Tuttos hintereinander! Du hast SOFORT gewonnen!", 'win', () => location.reload());
+                    showDialog("SIEG!", "Zwei Tuttos! Du gewinnst!", 'win', () => location.reload());
                 } else {
                     setTimeout(() => {
                         numDiceToRoll = 6; collectedDiceValues = []; 
-                        showDialog("ERSTES TUTTO!", "Noch ein Tutto für den Sieg!", 'info', () => { rollDice(); });
+                        showDialog("TUTTO!", "Noch eins für Kleeblatt!", 'info', () => { rollDice(); });
                     }, 800);
                 }
             } else if (currentCard.type === "feuerwerk") {
@@ -456,18 +435,10 @@ socket.on('ergebnis_wurf', (daten) => {
     }
 
     function finalizePoints(amount) {
-        // Plus/Minus Logik: 1000 für dich, -1000 für Highscorer
-        if (currentCard && currentCard.type === "plusminus" && numDiceToRoll === 0) {
-            amount = 1000;
-            let highestScore = Math.max(...scores);
-            if (highestScore > 0) {
-                scores = scores.map((s, idx) => (idx !== currentPlayer && s === highestScore) ? Math.max(0, s - 1000) : s);
-            }
-        }
         scores[currentPlayer] += amount;
         if(scores[currentPlayer] >= winScore && lastRoundStartedBy === -1) {
             lastRoundStartedBy = currentPlayer;
-            showDialog("LETZTE RUNDE!", "Ziel erreicht! Letzte Chance für alle anderen.", 'info', () => nextTurn());
+            showDialog("LETZTE RUNDE!", "Ziel erreicht!", 'info', () => nextTurn());
         } else {
             nextTurn();
         }
@@ -478,8 +449,7 @@ socket.on('ergebnis_wurf', (daten) => {
         if(currentPlayer === lastRoundStartedBy) {
             let maxScore = Math.max(...scores);
             let winnerIdx = scores.indexOf(maxScore);
-            saveToHighscore(players[winnerIdx], maxScore);
-            showDialog("ENDE", `${players[winnerIdx]} ist der Champion!`, 'win', () => location.reload());
+            showDialog("ENDE", `${players[winnerIdx]} gewinnt!`, 'win', () => location.reload());
             return;
         }
         roundScore = 0; numDiceToRoll = 6; dice = []; currentCard = null;
@@ -499,9 +469,9 @@ socket.on('ergebnis_wurf', (daten) => {
         document.getElementById('collected-dice').innerHTML = collectedDiceValues.map(v => `<img src="assets/die_${v}.png" class="mini-die-img">`).join("");
         
         const isMustTutto = currentCard && ["feuerwerk", "plusminus", "kleeblatt"].includes(currentCard.type);
-        document.getElementById('save-btn').disabled = !currentCard || roundScore === 0 || (isMustTutto && numDiceToRoll > 0);
+        document.getElementById('roll-btn').disabled = isAnimating || !currentCard || numDiceToRoll === 0;
+        document.getElementById('save-btn').disabled = isAnimating || !currentCard || roundScore === 0 || (isMustTutto && numDiceToRoll > 0);
         
-        // Kleeblatt-Regel: Karte ziehen Button bei Tutto ausblenden
         const isKleeblatt = currentCard && currentCard.type === "kleeblatt";
         document.getElementById('card-btn').style.display = (!currentCard || (numDiceToRoll === 0 && !isKleeblatt)) ? "block" : "none";
     }
@@ -519,6 +489,7 @@ socket.on('ergebnis_wurf', (daten) => {
         }
         dice.forEach(d => {
             if(!d.sel) {
+                if(isAnimating && d.y < d.targetY) d.y += 15; 
                 let displayVal = isAnimating ? (Math.floor(Date.now() / 80) % 6 + 1) : d.val;
                 const img = diceImages[displayVal];
                 if (img?.complete) {
@@ -541,17 +512,6 @@ socket.on('ergebnis_wurf', (daten) => {
     preloadAssets();
     window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
     canvas.width = window.innerWidth; canvas.height = window.innerHeight; render();
-        const socket = io(); // Dies baut die Verbindung zum Server auf!
-    
-    // Der Browser hört zu: Wenn der Server "ergebnis_wurf" ruft...
-    socket.on('ergebnis_wurf', (daten) => {
-    console.log("Würfel vom Server empfangen:", daten.werte);
 </script>
 </body>
 </html>
-
-
-
-
-
-
