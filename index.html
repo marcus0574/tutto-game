@@ -200,6 +200,16 @@
 <script>
     /* --- INTERNE LOGIK --- */
     const socket = io(); // Dies baut die Verbindung zum Server auf!
+    // Der Browser hört zu: Wenn der Server "ergebnis_wurf" ruft...
+socket.on('ergebnis_wurf', (daten) => {
+    console.log("Würfel vom Server empfangen:", daten.werte);
+    
+    // Wir füllen die lokalen Würfel-Variablen mit den Server-Werten
+    currentDiceValues = daten.werte;
+    
+    // Wir starten die Animation für ALLE Spieler gleichzeitig
+    startDiceAnimation(); 
+});
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -338,26 +348,25 @@
         updateUI();
     }
 
-    function rollDice() {
-        if (isAnimating || !currentCard) return;
-        isAnimating = true;
-        rollSound.currentTime = 0; rollSound.play().catch(e => {});
-        dice = [];
-        for(let i=0; i<numDiceToRoll; i++) {
-            let pos; let attempts = 0;
-            do {
-                pos = { 
-                    val: Math.floor(Math.random()*6)+1, 
-                    x: 350 + Math.random() * (canvas.width - 780), 
-                    y: 130 + Math.random() * (canvas.height - 380), 
-                    sel: false, rot: Math.random() * Math.PI * 2 
-                };
-                attempts++;
-            } while (dice.some(d => Math.hypot(pos.x-d.x, pos.y-d.y) < 115) && attempts < 100);
-            dice.push(pos);
+function rollDice() {
+    if (isAnimating || !currentCard) return;
+
+    // Wir zählen, wie viele Würfel geworfen werden müssen
+    const diceToRoll = [];
+    diceElements.forEach((dice, index) => {
+        if (!dice.classList.contains('kept')) {
+            diceToRoll.push(index);
         }
-        setTimeout(() => { isAnimating = false; checkNiete(); updateUI(); }, 1200);
-    }
+    });
+
+    const count = diceToRoll.length === 0 ? 6 : diceToRoll.length;
+
+    // JETZT: Nachricht an den Server senden
+    socket.emit('anfrage_wurf', { 
+        anzahl: count,
+        spielerName: players[currentPlayer].name 
+    });
+}
 
     function checkNiete() {
         let counts = {};
@@ -533,4 +542,5 @@
 </script>
 </body>
 </html>
+
 
