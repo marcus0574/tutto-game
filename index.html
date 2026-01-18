@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Collector Edition</title>
+    <title>Tutto - Clean UI Edition</title>
     <style>
         :root {
             --gold: #ffd700;
@@ -38,9 +38,11 @@
         #sidebar { 
             position: absolute; right: 0; top: 0; width: 260px; height: 100%; 
             background: var(--panel); border-left: 5px solid var(--gold); 
-            padding: 20px; box-sizing: border-box; overflow-y: auto;
+            padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;
         }
         
+        #score-list { flex-grow: 0; overflow-y: auto; max-height: 50%; }
+
         .controls { position: absolute; bottom: 30px; left: 350px; display: flex; gap: 15px; }
         
         button { 
@@ -62,15 +64,24 @@
             border: none; box-shadow: var(--card-shadow);
         }
 
-        .score-entry { margin-bottom: 15px; padding: 15px; border-radius: 12px; background: rgba(255,255,255,0.07); transition: 0.3s; }
-        .active-player { border: 1px solid var(--gold); background: rgba(255, 215, 0, 0.1); }
+        .score-entry { margin-bottom: 10px; padding: 10px 15px; border-radius: 10px; background: rgba(255,255,255,0.05); }
+        .active-player { border-left: 4px solid var(--gold); background: rgba(255, 215, 0, 0.1); }
         
-        .dice-collection { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-height: 25px; }
+        #round-area { 
+            margin-top: auto; padding-top: 20px; border-top: 1px solid #444; 
+            text-align: center;
+        }
+
+        .dice-collection { 
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; 
+            margin-top: 15px; min-height: 80px; padding: 10px;
+            background: rgba(0,0,0,0.3); border-radius: 12px;
+        }
         .mini-die { 
-            width: 24px; height: 24px; background: white; color: black; 
-            border-radius: 4px; display: flex; align-items: center; justify-content: center; 
-            font-weight: bold; font-size: 14px; border: 1px solid #999;
-            box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+            width: 32px; height: 32px; background: white; color: black; 
+            border-radius: 6px; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; font-size: 18px; border: 1px solid #999;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
         }
 
         #msg-display { position: absolute; top: 60px; left: 180px; font-size: 32px; color: var(--gold); font-weight: bold; }
@@ -93,13 +104,17 @@
 </div>
 
 <div id="sidebar">
-    <h2 style="color: var(--gold); margin-top: 0; text-align: center;">PUNKTE</h2>
+    <h3 style="color: var(--gold); margin-top: 0; text-align: center; font-size: 16px;">SPIELER</h3>
     <div id="score-list"></div>
-    <hr style="border: 0.5px solid #444; margin: 20px 0;">
-    <div id="round-info" style="text-align: center;">
-        <div style="font-size: 14px; color: #aaa;">AKTUELLE RUNDE</div>
-        <div id="round-display" style="font-size: 36px; color: var(--gold); font-weight: bold;">0</div>
-        <div id="bonus-info" style="font-size: 14px; color: #00ffff; margin-top: 5px;"></div>
+    
+    <div id="round-area">
+        <div style="font-size: 12px; color: #aaa; letter-spacing: 1px;">AKTUELLE RUNDE</div>
+        <div id="round-display" style="font-size: 42px; color: var(--gold); font-weight: bold; margin: 5px 0;">0</div>
+        <div id="bonus-info" style="font-size: 13px; color: #00ffff; height: 15px;"></div>
+        
+        <div style="font-size: 11px; color: #888; margin-top: 20px; text-transform: uppercase;">Gesammelte Würfel</div>
+        <div class="dice-collection" id="collected-dice-container">
+            </div>
     </div>
 </div>
 
@@ -243,37 +258,38 @@
     }
 
     function updateUI() {
+        // Spielerliste oben
         document.getElementById('score-list').innerHTML = players.map((p, i) => `
             <div class="score-entry ${i === currentPlayer ? 'active-player' : ''}">
-                <strong>${p}</strong> <span style="float:right">${scores[i]}</span>
-                <div class="dice-collection" id="dice-p${i}">
-                    ${i === currentPlayer ? selectedInRound.map(v => `<div class="mini-die">${v}</div>`).join("") : ""}
-                </div>
+                <div style="font-size: 14px; font-weight: bold;">${p}</div>
+                <div style="font-size: 18px; color: var(--gold);">${scores[i]}</div>
             </div>`).join("");
         
+        // Aktuelle Runde Display
         document.getElementById('round-display').innerText = roundScore;
         document.getElementById('deck-info').innerText = "Karten im Stapel: " + cardDeck.length;
+        
+        // Gesammelte Würfel unten in der Sidebar
+        document.getElementById('collected-dice-container').innerHTML = selectedInRound.map(v => `<div class="mini-die">${v}</div>`).join("");
         
         let bonusText = "";
         if(currentCard) {
             if(currentCard.bonus > 0 && currentCard.name !== "PLUS/MINUS") bonusText = "+ " + currentCard.bonus + " Bonus";
-            if(currentCard.name === "x2 VERDOPPLER") bonusText = "Punkte werden x2 gezählt!";
-            if(currentCard.name === "PLUS/MINUS") bonusText = "Tutto = 1000 Pkt & Gegner -1000";
+            if(currentCard.name === "x2 VERDOPPLER") bonusText = "x2 Verdoppler aktiv!";
+            if(currentCard.name === "PLUS/MINUS") bonusText = "Tutto Ziel: 1000 Pkt";
         }
         document.getElementById('bonus-info').innerText = bonusText;
+
         document.getElementById('roll-btn').disabled = (numDiceToRoll === 0 || !currentCard || isNiete);
         document.getElementById('save-btn').disabled = (roundScore === 0 || isNiete || (currentCard && (currentCard.name === "KLEEBLATT" || (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) || (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0))));
     }
 
     function drawDesignerCard(x, y, card) {
         const w = 150, h = 210, r = 15;
-        ctx.save();
-        ctx.translate(x, y);
+        ctx.save(); ctx.translate(x, y);
         ctx.shadowBlur = 20; ctx.shadowColor = "rgba(0,0,0,0.5)";
-        ctx.fillStyle = "white";
-        ctx.beginPath(); ctx.roundRect(0, 0, w, h, r); ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = card.color; ctx.lineWidth = 8;
+        ctx.fillStyle = "white"; ctx.beginPath(); ctx.roundRect(0, 0, w, h, r); ctx.fill();
+        ctx.shadowBlur = 0; ctx.strokeStyle = card.color; ctx.lineWidth = 8;
         ctx.beginPath(); ctx.roundRect(10, 10, w-20, h-20, r-5); ctx.stroke();
         ctx.fillStyle = card.color; ctx.font = "bold 40px Arial"; ctx.textAlign = "center";
         ctx.fillText(card.icon, w/2, h/2 - 10);
