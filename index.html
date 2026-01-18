@@ -10,6 +10,7 @@
             --panel-bg: rgba(0, 0, 0, 0.94);
             --accent: #2196f3;
             --danger: #ff1744;
+            --success: #4caf50;
         }
 
         body { 
@@ -21,7 +22,7 @@
 
         canvas { display: block; }
 
-        /* --- OVERLAYS --- */
+        /* --- UI OVERLAYS --- */
         #modal-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: none;
@@ -63,7 +64,7 @@
 
         #status-text { font-size: 32px; color: var(--gold); font-weight: 900; text-transform: uppercase; letter-spacing: 3px; }
 
-        /* --- SIDEBAR --- */
+        /* --- SIDEBAR RECHTS --- */
         #sidebar { 
             position: absolute; right: 0; top: 0; width: 320px; height: 100%; 
             background: var(--panel-bg); border-left: 5px solid var(--gold); 
@@ -126,7 +127,6 @@
         }
         #card-btn:hover { transform: scale(1.05); }
 
-        /* --- HIGHSCORE --- */
         .highscore-list { margin-top: 30px; text-align: left; font-size: 15px; border-top: 1px solid #333; padding-top: 20px; }
         .hs-entry { display: flex; justify-content: space-between; padding: 6px 0; color: #bbb; border-bottom: 1px solid #222; }
         .hs-entry:last-child { border: none; }
@@ -154,11 +154,11 @@
             <input type="text" id="p4" placeholder="Name Spieler 4 (Optional)">
         </div>
 
-        <p style="color: #888; margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold;">ZIELPUNKTZAHL WÄHLEN</p>
+        <p style="color: #888; margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: bold;">ZIELPUNKTZAHL</p>
         <select id="win-limit">
-            <option value="2000">2.000 Punkte (Kurz)</option>
-            <option value="6000" selected>6.000 Punkte (Normal)</option>
-            <option value="10000">10.000 Punkte (Lang)</option>
+            <option value="2000">2.000 Punkte</option>
+            <option value="6000" selected>6.000 Punkte</option>
+            <option value="10000">10.000 Punkte</option>
         </select>
 
         <button style="background: var(--gold); color: black; width: 100%; margin-top: 30px; font-weight: 900; height: 65px; border-radius: 18px; font-size: 24px;" onclick="startGame()">JETZT STARTEN</button>
@@ -211,15 +211,11 @@
     const cardImages = {}, diceImages = {};
     const deckImg = new Image(); deckImg.src = 'assets/stapel.png';
     
-    // Audio initialisieren
     const rollSound = new Audio('assets/dice_roll.mp3');
     const cardSound = new Audio('assets/card-sounds-35956.mp3');
     const nieteSound = new Audio('assets/niete.mp3');
     const winSound = new Audio('assets/win.mp3');
 
-    /**
-     * Lädt alle Bilder vor dem Start
-     */
     function preloadAssets() {
         const cardFiles = {
             'kleeblatt': 'assets/karte_kleeblatt.png', 'feuerwerk': 'assets/karte_feuerwerk.png',
@@ -243,7 +239,7 @@
         const hs = JSON.parse(localStorage.getItem('tutto_hs_2026_v2') || "[]");
         document.getElementById('hs-entries').innerHTML = hs.length > 0 ? 
             hs.map(e => `<div class="hs-entry"><span>${e.name}</span><b>${e.score} Pkt.</b></div>`).join("") : 
-            "<div style='color:#444; font-size:12px; text-align:center;'>Noch keine Einträge vorhanden</div>";
+            "<div style='color:#444; font-size:12px; text-align:center;'>Noch keine Einträge</div>";
     }
 
     function saveToHighscore(name, score) {
@@ -257,20 +253,14 @@
     function createParticles(x, y, color, count) {
         for (let i = 0; i < count; i++) {
             particles.push({
-                x, y,
-                vx: (Math.random() - 0.5) * 16,
+                x, y, vx: (Math.random() - 0.5) * 16,
                 vy: (Math.random() - 0.5) * 16 - 6,
                 size: Math.random() * 7 + 2,
-                color,
-                life: 1.0,
-                rot: Math.random() * Math.PI
+                color, life: 1.0, rot: Math.random() * Math.PI
             });
         }
     }
 
-    /**
-     * Zentrales Dialogfenster
-     */
     function showDialog(title, text, type, callback) {
         if(type === 'niete') nieteSound.play().catch(e=>{});
         if(type === 'win') winSound.play().catch(e=>{});
@@ -284,9 +274,6 @@
         };
     }
 
-    /**
-     * Sortiert die Würfel auf dem Tisch horizontal
-     */
     function sortDiceOnTable() {
         if(isAnimating || dice.length === 0) return;
         dice.sort((a,b) => a.val - b.val);
@@ -298,7 +285,7 @@
         });
     }
 
-    /* --- SPIEL-LOGIK --- */
+    /* --- SPIEL-KERN --- */
 
     function createDeck() {
         let deck = [];
@@ -337,20 +324,15 @@
     function drawCard() {
         if (cardDeck.length === 0) cardDeck = createDeck();
         cardSound.currentTime = 0; cardSound.play().catch(e => {});
-        
         cardX = -350;
         currentCard = cardDeck.pop();
-        if (numDiceToRoll === 0) { 
-            numDiceToRoll = 6; 
-            collectedDiceValues = []; 
-        }
-        
+        if (numDiceToRoll === 0) { numDiceToRoll = 6; collectedDiceValues = []; }
         document.getElementById('status-text').innerText = currentCard.name;
         
         if (currentCard.type === "stop") {
             document.getElementById('roll-btn').disabled = true;
             setTimeout(() => { 
-                showDialog("STOP", "Runde beendet! Nächster Spieler ist an der Reihe.", 'niete', () => {
+                showDialog("STOP", "Runde beendet! Nächster Spieler.", 'niete', () => {
                     roundScore = 0; nextTurn(); 
                 });
             }, 800);
@@ -373,8 +355,7 @@
                     val: Math.floor(Math.random()*6)+1, 
                     x: 350 + Math.random() * (canvas.width - 780), 
                     y: 130 + Math.random() * (canvas.height - 380), 
-                    sel: false, 
-                    rot: Math.random() * Math.PI * 2 
+                    sel: false, rot: Math.random() * Math.PI * 2 
                 };
                 attempts++;
             } while (dice.some(d => Math.hypot(pos.x-d.x, pos.y-d.y) < 115) && attempts < 100);
@@ -396,22 +377,21 @@
         if(currentCard.type === "strasse") {
             dice.forEach(d => { if(!collectedDiceValues.includes(d.val)) hasValid = true; });
         } else {
-            for(let v in counts) {
-                if(counts[v] >= 3 || v == 1 || v == 5) hasValid = true;
-            }
+            for(let v in counts) { if(counts[v] >= 3 || v == 1 || v == 5) hasValid = true; }
         }
 
         if(!hasValid) {
             document.getElementById('status-text').innerText = "NIETE!";
-            if (currentCard.type === "feuerwerk") {
-                showDialog("FEUERWERK-NIETE", "Kein Treffer, aber beim Feuerwerk bleiben die Punkte dieses Zuges sicher!", 'info', () => {
-                    finalizePoints(roundScore);
-                });
-            } else {
-                showDialog("NIETE", "Keine gültige Kombination gewürfelt. Deine Punkte verfallen!", 'niete', () => {
-                    roundScore = 0; nextTurn();
-                });
-            }
+            // VERZÖGERUNG: 2,5 Sekunden warten, damit man die Würfel noch sieht
+            setTimeout(() => {
+                if (currentCard.type === "feuerwerk") {
+                    showDialog("FEUERWERK", "Punkte bleiben sicher!", 'info', () => finalizePoints(roundScore));
+                } else {
+                    showDialog("NIETE", "Pech gehabt! Keine gültige Kombination.", 'niete', () => {
+                        roundScore = 0; nextTurn();
+                    });
+                }
+            }, 2500);
         }
     }
 
@@ -420,12 +400,7 @@
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-        
-        dice.forEach(d => {
-            if(!d.sel && mx > d.x && mx < d.x+90 && my > d.y && my < d.y+90) {
-                handleSelection(d);
-            }
-        });
+        dice.forEach(d => { if(!d.sel && mx > d.x && mx < d.x+90 && my > d.y && my < d.y+90) handleSelection(d); });
     });
 
     function handleSelection(d) {
@@ -434,9 +409,7 @@
         
         if(currentCard.type === "strasse") {
             if(!collectedDiceValues.includes(val)) {
-                d.sel = true;
-                collectedDiceValues.push(val);
-                numDiceToRoll--;
+                d.sel = true; collectedDiceValues.push(val); numDiceToRoll--;
                 if(collectedDiceValues.length === 6) p = 2000;
             }
         } else {
@@ -445,41 +418,29 @@
                 let count = 0;
                 dice.forEach(x => {
                     if(!x.sel && x.val === val && count < 3) {
-                        x.sel = true;
-                        count++;
-                        numDiceToRoll--;
-                        collectedDiceValues.push(val);
+                        x.sel = true; count++; numDiceToRoll--; collectedDiceValues.push(val);
                     }
                 });
-                if(val === 1) p = 1000;
-                else p = val * 100;
+                p = (val === 1) ? 1000 : val * 100;
             } else if(val === 1 || val === 5) {
-                d.sel = true;
-                numDiceToRoll--;
-                collectedDiceValues.push(val);
+                d.sel = true; numDiceToRoll--; collectedDiceValues.push(val);
                 p = (val === 1) ? 100 : 50;
             }
         }
         
         roundScore += p;
-        
         if(numDiceToRoll === 0) {
             createParticles(canvas.width/2, canvas.height/2, "#ffd700", 70);
             document.getElementById('status-text').innerText = "TUTTO!";
-            
             if (currentCard.type === "kleeblatt") {
                 kleeblattTuttos++;
                 if (kleeblattTuttos === 2) {
                     saveToHighscore(players[currentPlayer], scores[currentPlayer] + roundScore);
-                    showDialog("GLÜCKS-SIEG!", "Zwei Tuttos hintereinander beim Kleeblatt! Du gewinnst das Spiel sofort!", 'win', () => location.reload());
+                    showDialog("KLEEBLATT!", "Zwei Tuttos in Folge! Sieg!", 'win', () => location.reload());
                 }
             }
             if (currentCard.type === "feuerwerk") {
-                setTimeout(() => {
-                    numDiceToRoll = 6;
-                    collectedDiceValues = [];
-                    rollDice();
-                }, 800);
+                setTimeout(() => { numDiceToRoll = 6; collectedDiceValues = []; rollDice(); }, 800);
             }
         }
         updateUI();
@@ -487,7 +448,6 @@
 
     function savePoints() {
         let finalTurnScore = roundScore;
-        // Bonusse nur bei Tutto
         if (numDiceToRoll === 0) {
             if (currentCard.type === "bonus") finalTurnScore += currentCard.value;
             if (currentCard.type === "x2") finalTurnScore *= 2;
@@ -496,21 +456,26 @@
     }
 
     function finalizePoints(amount) {
-        // Plus/Minus Logik
+        // PLUS/MINUS LOGIK
         if (currentCard && currentCard.type === "plusminus" && numDiceToRoll === 0) {
-            amount = 1000;
-            let highest = Math.max(...scores);
-            if (highest > 0) {
-                scores = scores.map(s => (s === highest && s > 0) ? Math.max(0, s - 1000) : s);
+            amount = 1000; // Aktiver Spieler kriegt 1000
+            let highestScore = Math.max(...scores);
+            // Alle Mitspieler, die den Highscore haben, verlieren 1000
+            if (highestScore > 0) {
+                scores = scores.map((s, idx) => {
+                    if (idx !== currentPlayer && s === highestScore) {
+                        return Math.max(0, s - 1000);
+                    }
+                    return s;
+                });
             }
         }
         
         scores[currentPlayer] += amount;
         
-        // Prüfung auf Sieg / Letzte Runde
         if(scores[currentPlayer] >= winScore && lastRoundStartedBy === -1) {
             lastRoundStartedBy = currentPlayer;
-            showDialog("LETZTE RUNDE!", `Du hast ${winScore} Punkte erreicht! Die anderen haben noch einen letzten Zug Zeit, dich zu schlagen.`, 'info', () => nextTurn());
+            showDialog("LETZTE RUNDE!", "Du hast das Ziel erreicht!", 'info', () => nextTurn());
         } else {
             nextTurn();
         }
@@ -518,22 +483,15 @@
 
     function nextTurn() {
         currentPlayer = (currentPlayer + 1) % players.length;
-        
-        // Wenn wir wieder beim Auslöser der letzten Runde sind, ist das Spiel aus
         if(currentPlayer === lastRoundStartedBy) {
             let maxScore = Math.max(...scores);
             let winnerIdx = scores.indexOf(maxScore);
             saveToHighscore(players[winnerIdx], maxScore);
-            showDialog("SPIEL BEENDET!", `${players[winnerIdx]} ist der Sieger mit ${maxScore} Punkten!`, 'win', () => location.reload());
+            showDialog("ENDE", `${players[winnerIdx]} gewinnt mit ${maxScore} Pkt!`, 'win', () => location.reload());
             return;
         }
-        
-        roundScore = 0;
-        numDiceToRoll = 6;
-        dice = [];
-        currentCard = null;
-        collectedDiceValues = [];
-        kleeblattTuttos = 0;
+        roundScore = 0; numDiceToRoll = 6; dice = []; currentCard = null;
+        collectedDiceValues = []; kleeblattTuttos = 0;
         document.getElementById('status-text').innerText = "Karte ziehen!";
         updateUI();
     }
@@ -545,84 +503,48 @@
                 <div style="font-size: 14px; opacity: 0.7; font-weight: bold;">${name}</div>
                 <div class="score-val">${scores[i]} <span style="font-size:12px; opacity:0.4">/ ${winScore}</span></div>
             </div>`).join("");
-            
         document.getElementById('round-points').innerText = roundScore;
         document.getElementById('collected-dice').innerHTML = collectedDiceValues.map(v => `<img src="assets/die_${v}.png" class="mini-die-img">`).join("");
-        
         const isMustTutto = currentCard && ["feuerwerk", "plusminus", "kleeblatt"].includes(currentCard.type);
         document.getElementById('save-btn').disabled = !currentCard || roundScore === 0 || (isMustTutto && numDiceToRoll > 0);
         document.getElementById('card-btn').style.display = (numDiceToRoll === 0 || !currentCard) ? "block" : "none";
     }
 
-    /**
-     * Die Game Loop
-     */
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Kartenstapel (Bild)
-        if (deckImg.complete) {
-            ctx.drawImage(deckImg, 35, 150, 195, 275);
-        }
-
-        // Aktuell gezogene Karte
+        if (deckImg.complete) ctx.drawImage(deckImg, 35, 150, 195, 275);
         if (currentCard) {
-            if (cardX < 55) cardX += 25; // Einblend-Animation
+            if (cardX < 55) cardX += 25;
             const img = cardImages[currentCard.imgKey];
-            if (img && img.complete) {
-                ctx.save();
-                ctx.shadowBlur = 30;
-                ctx.shadowColor = "rgba(0,0,0,0.7)";
-                ctx.drawImage(img, cardX, 150, 180, 260);
-                ctx.restore();
+            if (img?.complete) {
+                ctx.save(); ctx.shadowBlur = 30; ctx.shadowColor = "rgba(0,0,0,0.7)";
+                ctx.drawImage(img, cardX, 150, 180, 260); ctx.restore();
             }
         }
-
-        // Würfel auf dem Tisch
         dice.forEach(d => {
             if(!d.sel) {
                 let displayVal = isAnimating ? (Math.floor(Date.now() / 80) % 6 + 1) : d.val;
                 const img = diceImages[displayVal];
-                if (img && img.complete) {
-                    ctx.save();
-                    ctx.translate(d.x + 45, d.y + 45);
+                if (img?.complete) {
+                    ctx.save(); ctx.translate(d.x + 45, d.y + 45);
                     ctx.rotate(isAnimating ? Date.now() * 0.01 + d.rot : d.rot);
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = "rgba(0,0,0,0.5)";
-                    ctx.drawImage(img, -45, -45, 90, 90);
-                    ctx.restore();
+                    ctx.shadowBlur = 15; ctx.drawImage(img, -45, -45, 90, 90); ctx.restore();
                 }
             }
         });
-
-        // Partikel-Effekte
         particles.forEach((p, i) => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.28; // Schwerkraft
-            p.life -= 0.015;
-            ctx.save();
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.rot + (1 - p.life) * 5);
-            ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
-            ctx.restore();
+            p.x += p.vx; p.y += p.vy; p.vy += 0.28; p.life -= 0.015;
+            ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+            ctx.translate(p.x, p.y); ctx.rotate(p.rot + (1 - p.life) * 5);
+            ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); ctx.restore();
             if(p.life <= 0) particles.splice(i, 1);
         });
-
         requestAnimationFrame(render);
     }
 
-    // Event Listener & Initialisierung
     preloadAssets();
-    window.addEventListener('resize', () => { 
-        canvas.width = window.innerWidth; 
-        canvas.height = window.innerHeight; 
-    });
-    canvas.width = window.innerWidth; 
-    canvas.height = window.innerHeight; 
-    render();
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight; render();
 </script>
 </body>
 </html>
