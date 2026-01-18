@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Strategy Edition</title>
+    <title>Tutto - Ultimate Edition</title>
     <style>
         :root {
             --gold: #ffd700;
@@ -70,7 +70,7 @@
 
 <div id="setup-screen">
     <div class="setup-box">
-        <h1 style="color: var(--gold); margin-top: 0;">TUTTO</h1>
+        <h1 style="color: var(--gold); margin-top: 0;">TUTTO ULTIMATE</h1>
         <div id="player-inputs">
             <input type="text" id="p1" value="Spieler 1">
             <input type="text" id="p2" value="Spieler 2">
@@ -144,7 +144,7 @@
 
     function rollDice() {
         if (!currentCard || isNiete || isAnimatingDice) return;
-        if (numDiceToRoll === 0) return; // Spieler muss "Neue Karte" drücken oder "Sichern"
+        if (numDiceToRoll === 0) return;
         
         rollSound.play().catch(() => {});
         isAnimatingDice = true;
@@ -161,7 +161,7 @@
 
     function drawCard() {
         if (isNiete || isAnimatingDice) return;
-        if (currentCard && numDiceToRoll !== 0) return; // Nur am Anfang oder nach Tutto erlaubt
+        if (currentCard && numDiceToRoll !== 0) return;
 
         cardX = -250;
         const deck = [
@@ -170,14 +170,15 @@
             {name: "STOP", color: "#b32b2b", bonus: 0, icon: "✕"},
             {name: "TUTTO", color: "#d4af37", bonus: 0, icon: "❂"},
             {name: "STRASSE", color: "#2bb3b3", bonus: 2000, icon: "➔"},
-            {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣"}
+            {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣"},
+            {name: "x2 VERDOPPLER", color: "#e67e22", bonus: 0, icon: "x2"},
+            {name: "PLUS/MINUS", color: "#27ae60", bonus: 1000, icon: "±"},
+            {name: "ZWANGRUNDE", color: "#7f8c8d", bonus: 0, icon: "↻"}
         ];
         
-        // Bei einem Tutto behalten wir die aktuelle Karte, wenn es kein Stop war
         if (numDiceToRoll === 0) {
             numDiceToRoll = 6;
-            // Falls Kleeblatt oder Strasse aktiv war, ziehen wir eine neue Karte
-            if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT") {
+            if (currentCard.name === "STRASSE" || currentCard.name === "KLEEBLATT" || currentCard.name === "PLUS/MINUS") {
                 currentCard = deck[Math.floor(Math.random() * deck.length)];
             }
         } else {
@@ -202,14 +203,23 @@
     }
 
     function savePoints() {
-        // Sichern ist möglich wenn: Punkte da sind UND (Würfel übrig ODER Tutto erreicht ODER Strasse fertig)
         if (roundScore === 0 || isNiete || !currentCard || isAnimatingDice) return;
-        if (currentCard.name === "KLEEBLATT") return; // Kleeblatt kann man nicht sichern
+        
+        // Zwangskarten prüfen
+        if (currentCard.name === "KLEEBLATT") return; 
+        if (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) return;
+        if (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0) return;
 
         let finalPoints = roundScore;
-        // Bonuspunkte nur hinzufügen, wenn keine Spezialkarte (Strasse hat Bonus inkludiert)
-        if (currentCard.bonus > 0 && currentCard.name.startsWith("BONUS")) {
-            finalPoints += currentCard.bonus;
+        
+        // Bonus Logik
+        if (currentCard.name.startsWith("BONUS")) finalPoints += currentCard.bonus;
+        if (currentCard.name === "x2 VERDOPPLER") finalPoints *= 2;
+        if (currentCard.name === "PLUS/MINUS" && numDiceToRoll === 0) {
+            // Führenden Spieler finden
+            let leadIdx = scores.indexOf(Math.max(...scores));
+            if (scores[leadIdx] > 0) scores[leadIdx] = Math.max(0, scores[leadIdx] - 1000);
+            finalPoints = 1000;
         }
 
         scores[currentPlayer] += finalPoints;
@@ -231,11 +241,24 @@
             </div>`).join("");
         
         document.getElementById('round-display').innerText = roundScore;
-        document.getElementById('bonus-info').innerText = (currentCard && currentCard.bonus > 0) ? "+ " + currentCard.bonus + " Bonus" : "";
+        let bonusText = "";
+        if(currentCard) {
+            if(currentCard.bonus > 0 && currentCard.name !== "PLUS/MINUS") bonusText = "+ " + currentCard.bonus + " Bonus";
+            if(currentCard.name === "x2 VERDOPPLER") bonusText = "Punkte werden x2 gezählt!";
+            if(currentCard.name === "PLUS/MINUS") bonusText = "Tutto = 1000 Pkt & Gegner -1000";
+        }
+        document.getElementById('bonus-info').innerText = bonusText;
 
-        // Buttons steuern
         document.getElementById('roll-btn').disabled = (numDiceToRoll === 0 || !currentCard || isNiete);
-        document.getElementById('save-btn').disabled = (roundScore === 0 || isNiete || (currentCard && currentCard.name === "KLEEBLATT"));
+        
+        // Sichern Button Logik
+        let canSave = (roundScore > 0 && !isNiete);
+        if(currentCard && (currentCard.name === "KLEEBLATT" || 
+           (currentCard.name === "ZWANGRUNDE" && numDiceToRoll > 0) ||
+           (currentCard.name === "PLUS/MINUS" && numDiceToRoll > 0))) {
+            canSave = false;
+        }
+        document.getElementById('save-btn').disabled = !canSave;
     }
 
     function drawDesignerCard(x, y, card) {
@@ -250,7 +273,7 @@
         ctx.beginPath(); ctx.roundRect(10, 10, w-20, h-20, r-5); ctx.stroke();
         ctx.fillStyle = card.color; ctx.font = "bold 40px Arial"; ctx.textAlign = "center";
         ctx.fillText(card.icon, w/2, h/2 - 10);
-        ctx.font = "bold 16px sans-serif"; ctx.fillText(card.name, w/2, h/2 + 35);
+        ctx.font = "bold 15px sans-serif"; ctx.fillText(card.name, w/2, h/2 + 35);
         ctx.restore();
     }
 
