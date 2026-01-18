@@ -367,6 +367,15 @@ function rollDice() {
         spielerName: players[currentPlayer].name 
     });
 }
+    // Hier empfangen wir die Würfelzahlen vom Server
+socket.on('ergebnis_wurf', (daten) => {
+    // Wir speichern die vom Server gewürfelten Werte
+    currentDiceValues = daten.werte;
+    
+    // Jetzt starten wir die Animation, die du schon im Code hast
+    // (Deine ursprüngliche Funktion wird jetzt vom Server ausgelöst!)
+    startDiceAnimation(); 
+});
 
     function checkNiete() {
         let counts = {};
@@ -542,5 +551,6 @@ function rollDice() {
 </script>
 </body>
 </html>
+
 
 
