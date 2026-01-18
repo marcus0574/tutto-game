@@ -131,6 +131,7 @@
         .hs-entry { display: flex; justify-content: space-between; padding: 6px 0; color: #bbb; border-bottom: 1px solid #222; }
         .hs-entry:last-child { border: none; }
     </style>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
@@ -198,6 +199,7 @@
 
 <script>
     /* --- INTERNE LOGIK --- */
+    const socket = io(); // Dies baut die Verbindung zum Server auf!
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -531,3 +533,4 @@
 </script>
 </body>
 </html>
+
