@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tutto - Balanced Edition</title>
+    <title>Tutto - Collector Edition</title>
     <style>
         :root {
             --gold: #ffd700;
@@ -38,7 +38,7 @@
         #sidebar { 
             position: absolute; right: 0; top: 0; width: 260px; height: 100%; 
             background: var(--panel); border-left: 5px solid var(--gold); 
-            padding: 20px; box-sizing: border-box;
+            padding: 20px; box-sizing: border-box; overflow-y: auto;
         }
         
         .controls { position: absolute; bottom: 30px; left: 350px; display: flex; gap: 15px; }
@@ -55,14 +55,24 @@
         #save-btn { background: linear-gradient(#e64a4a, #961e1e); }
         #undo-btn { background: linear-gradient(#777, #333); }
         #start-btn { background: var(--gold); color: black; width: 100%; margin-top: 20px; }
+        
         #card-btn { 
             position: absolute; top: 380px; left: 25px; background: var(--gold); 
             color: black; width: 130px; padding: 12px; border-radius: 12px; font-weight: bold;
             border: none; box-shadow: var(--card-shadow);
         }
 
-        .score-entry { margin-bottom: 12px; padding: 15px; border-radius: 12px; background: rgba(255,255,255,0.07); }
+        .score-entry { margin-bottom: 15px; padding: 15px; border-radius: 12px; background: rgba(255,255,255,0.07); transition: 0.3s; }
         .active-player { border: 1px solid var(--gold); background: rgba(255, 215, 0, 0.1); }
+        
+        .dice-collection { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-height: 25px; }
+        .mini-die { 
+            width: 24px; height: 24px; background: white; color: black; 
+            border-radius: 4px; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; font-size: 14px; border: 1px solid #999;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+
         #msg-display { position: absolute; top: 60px; left: 180px; font-size: 32px; color: var(--gold); font-weight: bold; }
         #deck-info { position: absolute; top: 355px; left: 25px; font-size: 12px; color: #aaa; }
     </style>
@@ -83,7 +93,7 @@
 </div>
 
 <div id="sidebar">
-    <h2 style="color: var(--gold); margin-top: 0; text-align: center;">SCORE</h2>
+    <h2 style="color: var(--gold); margin-top: 0; text-align: center;">PUNKTE</h2>
     <div id="score-list"></div>
     <hr style="border: 0.5px solid #444; margin: 20px 0;">
     <div id="round-info" style="text-align: center;">
@@ -111,9 +121,7 @@
     
     let players = [], scores = [], currentPlayer = 0;
     let currentCard = null, dice = [], selectedInRound = [], numDiceToRoll = 6, roundScore = 0, isNiete = false;
-    let moveHistory = [], isAnimatingDice = false, diceAnimTimer = 0, cardX = -250, particles = [];
-    
-    // Kartenstapel Logik
+    let moveHistory = [], isAnimatingDice = false, diceAnimTimer = 0, cardX = -250;
     let cardDeck = [];
     
     function createDeck() {
@@ -128,13 +136,8 @@
             {name: "ZWANGRUNDE", color: "#7f8c8d", bonus: 0, icon: "↻", count: 2},
             {name: "KLEEBLATT", color: "#b32bb3", bonus: 0, icon: "♣", count: 2}
         ];
-        
         let newDeck = [];
-        proto.forEach(p => {
-            for(let i=0; i<p.count; i++) newDeck.push({...p});
-        });
-        
-        // Fisher-Yates Shuffle
+        proto.forEach(p => { for(let i=0; i<p.count; i++) newDeck.push({...p}); });
         for (let i = newDeck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
@@ -164,26 +167,14 @@
     function drawCard() {
         if (isNiete || isAnimatingDice) return;
         if (currentCard && numDiceToRoll !== 0) return;
-
-        if (cardDeck.length === 0) {
-            cardDeck = createDeck();
-            console.log("Deck neu gemischt!");
-        }
+        if (cardDeck.length === 0) cardDeck = createDeck();
 
         cardX = -250;
         currentCard = cardDeck.pop();
-        selectedInRound = [];
+        if (numDiceToRoll === 0) { numDiceToRoll = 6; selectedInRound = []; }
         
-        if (numDiceToRoll === 0) {
-            numDiceToRoll = 6;
-        }
-
-        if (currentCard.name === "STOP") { 
-            isNiete = true; 
-            document.getElementById('msg-display').innerText = "STOP!"; 
-        } else { 
-            document.getElementById('msg-display').innerText = currentCard.name; 
-        }
+        if (currentCard.name === "STOP") { isNiete = true; document.getElementById('msg-display').innerText = "STOP!"; }
+        else { document.getElementById('msg-display').innerText = currentCard.name; }
         updateUI();
     }
 
@@ -217,7 +208,11 @@
     function undoLastSelection() {
         if (moveHistory.length === 0 || isAnimatingDice) return;
         let lastMove = moveHistory.pop();
-        lastMove.diceIndices.forEach(idx => { dice[idx].selected = false; numDiceToRoll++; selectedInRound.pop(); });
+        lastMove.diceIndices.forEach(idx => { 
+            dice[idx].selected = false; 
+            numDiceToRoll++; 
+            selectedInRound.pop(); 
+        });
         roundScore -= lastMove.points;
         updateUI();
     }
@@ -242,7 +237,7 @@
 
     function nextTurn() {
         currentPlayer = (currentPlayer + 1) % players.length;
-        roundScore = 0; numDiceToRoll = 6; dice = []; currentCard = null; isNiete = false; moveHistory = [];
+        roundScore = 0; numDiceToRoll = 6; dice = []; currentCard = null; isNiete = false; moveHistory = []; selectedInRound = [];
         document.getElementById('msg-display').innerText = "Karte ziehen!";
         updateUI();
     }
@@ -250,8 +245,12 @@
     function updateUI() {
         document.getElementById('score-list').innerHTML = players.map((p, i) => `
             <div class="score-entry ${i === currentPlayer ? 'active-player' : ''}">
-                <strong>${p}</strong><br><span style="font-size: 20px;">${scores[i]}</span>
+                <strong>${p}</strong> <span style="float:right">${scores[i]}</span>
+                <div class="dice-collection" id="dice-p${i}">
+                    ${i === currentPlayer ? selectedInRound.map(v => `<div class="mini-die">${v}</div>`).join("") : ""}
+                </div>
             </div>`).join("");
+        
         document.getElementById('round-display').innerText = roundScore;
         document.getElementById('deck-info').innerText = "Karten im Stapel: " + cardDeck.length;
         
@@ -308,8 +307,12 @@
 
     function checkNieteFinal() {
         let counts = {};
-        dice.forEach(d => counts[d.value] = (counts[d.value] || 0) + 1);
-        if (currentCard.name === "STRASSE") return dice.every(d => selectedInRound.includes(d.value));
+        dice.forEach(d => { if(!d.selected) counts[d.value] = (counts[d.value] || 0) + 1; });
+        if (currentCard.name === "STRASSE") {
+            let needed = [1,2,3,4,5,6].filter(n => !selectedInRound.includes(n));
+            let available = dice.filter(d => !d.selected).map(d => d.value);
+            return !needed.some(n => available.includes(n));
+        }
         for (let v in counts) if (counts[v] >= 3 || v == 1 || v == 5) return false;
         return true;
     }
