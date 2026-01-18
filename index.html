@@ -21,7 +21,6 @@
         }
         canvas { display: block; }
         
-        /* Setup Screen */
         #setup-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
@@ -37,7 +36,6 @@
             margin: 8px; width: 85%; background: #111; color: white; 
         }
         
-        /* Sidebar & UI */
         #sidebar { 
             position: absolute; right: 0; top: 0; width: 260px; height: 100%; 
             background: var(--panel); border-left: 5px solid var(--gold); 
@@ -119,11 +117,8 @@
     let players = [], scores = [], currentPlayer = 0;
     let currentCard = null, dice = [], selectedInRound = [];
     let numDiceToRoll = 6, roundScore = 0, isNiete = false;
-    
-    // History für Undo
     let moveHistory = []; 
 
-    // Animation States
     let isAnimatingDice = false, diceAnimTimer = 0, cardX = -200, particles = [];
 
     const diceImages = [];
@@ -145,12 +140,29 @@
         updateUI();
     }
 
+    // Verbesserte Positionsfindung ohne Überlappung
+    function findSafePos(currentDice) {
+        let x, y, overlap;
+        let attempts = 0;
+        const size = 105; // Puffer für 90px Würfel
+        do {
+            overlap = false;
+            x = 180 + Math.random() * (window.innerWidth - 520);
+            y = 120 + Math.random() * (window.innerHeight - 340);
+            for (let d of currentDice) {
+                if (Math.abs(x - d.x) < size && Math.abs(y - d.y) < size) overlap = true;
+            }
+            attempts++;
+        } while (overlap && attempts < 500);
+        return {x, y};
+    }
+
     function rollDice() {
         if (!currentCard || isNiete || isAnimatingDice) return;
         rollSound.play().catch(() => {});
         isAnimatingDice = true;
         diceAnimTimer = 25;
-        moveHistory = []; // Nach dem Würfeln kein Undo mehr möglich
+        moveHistory = [];
 
         if (numDiceToRoll === 0) { 
             numDiceToRoll = 6; 
@@ -160,8 +172,13 @@
         
         dice = [];
         for (let i = 0; i < numDiceToRoll; i++) {
-            let pos = { x: 200 + Math.random() * (window.innerWidth - 550), y: 120 + Math.random() * (window.innerHeight - 350) };
-            dice.push({ value: Math.floor(Math.random() * 6) + 1, x: pos.x, y: pos.y, selected: false });
+            let pos = findSafePos(dice);
+            dice.push({ 
+                value: Math.floor(Math.random() * 6) + 1, 
+                x: pos.x, 
+                y: pos.y, 
+                selected: false 
+            });
         }
         updateUI();
     }
@@ -169,8 +186,6 @@
     function undoLastSelection() {
         if (moveHistory.length === 0 || isAnimatingDice) return;
         let lastMove = moveHistory.pop();
-        
-        // Würfel wieder freigeben
         lastMove.diceIndices.forEach(idx => {
             dice[idx].selected = false;
             numDiceToRoll++;
@@ -237,7 +252,6 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Karte
         if (currentCard) {
             if (cardX < 20) cardX += 15;
             ctx.fillStyle = currentCard.color;
@@ -248,12 +262,13 @@
             ctx.fillText(currentCard.name, cardX + 15, 250);
         }
 
-        // Würfel
         dice.forEach((d, i) => {
             if (!d.selected) {
                 let dx = d.x, dy = d.y, val = d.value;
                 if (isAnimatingDice) {
-                    dx += (Math.random()-0.5)*15; dy += (Math.random()-0.5)*15;
+                    // Schüttel-Versatz
+                    dx += (Math.random()-0.5)*15; 
+                    dy += (Math.random()-0.5)*15;
                     val = Math.floor(Math.random()*6)+1;
                 }
                 if (diceImages[val]?.complete) {
@@ -275,7 +290,7 @@
 
         particles.forEach((p, i) => {
             p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 7); ctx.fill();
             if (p.life <= 0) particles.splice(i, 1);
         });
